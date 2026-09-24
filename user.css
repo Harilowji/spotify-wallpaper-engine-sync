@@ -1,7 +1,7 @@
 /**
  * Spotify x Wallpaper Engine Sync - Transparent Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.0.0
+ * Version: 2.0.1
  */
 
 :root {
@@ -20,11 +20,13 @@
 body,
 html,
 #main,
+.Root,
 .Root__top-container,
 .Root__nav-block,
 .Root__main-view,
 .Root__now-playing-bar,
 .Root__right-sidebar,
+.under-main-view,
 .main-view-container,
 .main-view-container__scroll-node,
 .main-view-container__scroll-node-child,
@@ -45,6 +47,7 @@ html,
 .main-home-homeHeader,
 .main-topBar-background,
 .main-topBar-overlay,
+.main-topBar-container,
 .main-view-container__scroll-node-child-blinder,
 .main-trackList-trackListHeader,
 .main-trackList-trackListHeaderStuck {
