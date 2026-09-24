@@ -1,10 +1,11 @@
 /**
  * Spotify x Wallpaper Engine Sync Server
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.0.1
+ * Version: 2.1.0
  * 
  * Local background daemon that bridges Wallpaper Engine / Windows Desktop
  * wallpapers directly to the Spicetify Spotify client.
+ * Features built-in 4K PKG scene texture extraction for Wallpaper Engine.
  */
 
 const http = require("http");
@@ -39,11 +40,40 @@ let cachedWeConfigPath = null;
 let cachedWindowsWallpaper = null;
 
 /**
+ * Manages the cache directory and prunes older files (keeps newest 15)
+ */
+function ensureCacheDir() {
+    const tempDir = path.join(os.tmpdir(), 'spotify_we_cache');
+    if (!fs.existsSync(tempDir)) {
+        fs.mkdirSync(tempDir, { recursive: true });
+    } else {
+        try {
+            const files = fs.readdirSync(tempDir)
+                .filter(f => f.endsWith('.webm') || f.endsWith('_hires.png') || f.endsWith('_hires.jpg'))
+                .map(f => {
+                    const full = path.join(tempDir, f);
+                    return { name: f, time: fs.statSync(full).mtime.getTime() };
+                })
+                .sort((a, b) => b.time - a.time);
+
+            if (files.length > 15) {
+                for (let i = 15; i < files.length; i++) {
+                    try {
+                        fs.unlinkSync(path.join(tempDir, files[i].name));
+                    } catch (e) {}
+                }
+            }
+        } catch (e) {
+            console.error("[Cache Cleanup] Error:", e.message);
+        }
+    }
+    return tempDir;
+}
+
+/**
  * Periodically check and cache default Windows Desktop Wallpaper
- * Inspects multiple registry keys & filesystem paths to guarantee a valid image
  */
 function updateWindowsWallpaper() {
-    // 1. Check Windows Explorer Wallpapers history & backup path (most reliable on Win 10/11)
     exec('reg query "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Explorer\\Wallpapers"', (err, stdout) => {
         if (!err && stdout) {
             const backedUp = stdout.match(/BackedUpWallpaperPath\s+REG_SZ\s+(.+)/i);
@@ -65,7 +95,6 @@ function updateWindowsWallpaper() {
             }
         }
 
-        // 2. Check Classic Desktop Wallpaper registry
         exec('reg query "HKCU\\Control Panel\\Desktop" /v Wallpaper', (err2, stdout2) => {
             if (!err2 && stdout2) {
                 const match = stdout2.match(/Wallpaper\s+REG_SZ\s+(.+)/i);
@@ -78,14 +107,12 @@ function updateWindowsWallpaper() {
                 }
             }
 
-            // 3. Check Windows TranscodedWallpaper in AppData (only if non-empty)
             const transcoded = path.join(process.env.APPDATA || "", "Microsoft\\Windows\\Themes\\TranscodedWallpaper");
             if (fs.existsSync(transcoded) && fs.statSync(transcoded).size > 0) {
                 cachedWindowsWallpaper = transcoded;
                 return;
             }
 
-            // 4. Default Windows system wallpaper
             const defaultWin = "C:\\Windows\\Web\\Wallpaper\\Windows\\img0.jpg";
             if (fs.existsSync(defaultWin)) {
                 cachedWindowsWallpaper = defaultWin;
@@ -97,7 +124,7 @@ setInterval(updateWindowsWallpaper, 10000);
 updateWindowsWallpaper();
 
 /**
- * Intelligent discovery of Wallpaper Engine config.json across multiple storage locations
+ * Intelligent discovery of Wallpaper Engine config.json
  */
 function getWEConfigPath() {
     if (cachedWeConfigPath && fs.existsSync(cachedWeConfigPath)) {
@@ -106,7 +133,6 @@ function getWEConfigPath() {
 
     const candidateBases = [];
 
-    // 1. Check Steam App Registry
     try {
         const out = execSync('reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 431960" /v InstallLocation', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
         const match = out.match(/InstallLocation\s+REG_SZ\s+(.+)/i);
@@ -115,7 +141,6 @@ function getWEConfigPath() {
         }
     } catch (e) {}
 
-    // 2. Check Valve Steam Registry
     try {
         const out = execSync('reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
         const match = out.match(/SteamPath\s+REG_SZ\s+(.+)/i);
@@ -125,7 +150,6 @@ function getWEConfigPath() {
         }
     } catch (e) {}
 
-    // 3. Common drive locations
     candidateBases.push(
         "D:\\Steam\\steamapps\\common\\wallpaper_engine",
         "D:\\New folder\\steamapps\\common\\wallpaper_engine",
@@ -177,7 +201,95 @@ function getCurrentWallpaper() {
 }
 
 /**
- * Resolves Wallpaper Engine scenes (.pkg, .html) into high-res preview image/gif
+ * Extracts true Full-HD / 4K PNG or JPEG wallpaper from Wallpaper Engine scene.pkg
+ */
+function extractHighResFromPkg(pkgPath) {
+    try {
+        const hash = crypto.createHash('md5').update(pkgPath).digest('hex');
+        const cacheDir = ensureCacheDir();
+        const cachedHighResPng = path.join(cacheDir, `${hash}_hires.png`);
+        const cachedHighResJpg = path.join(cacheDir, `${hash}_hires.jpg`);
+
+        if (fs.existsSync(cachedHighResPng) && fs.statSync(cachedHighResPng).size > 100000) {
+            return cachedHighResPng;
+        }
+        if (fs.existsSync(cachedHighResJpg) && fs.statSync(cachedHighResJpg).size > 100000) {
+            return cachedHighResJpg;
+        }
+
+        const fd = fs.openSync(pkgPath, 'r');
+        const hBuf = Buffer.alloc(16);
+        fs.readSync(fd, hBuf, 0, 16, 0);
+        const magicLen = hBuf.readUInt32LE(0);
+        let pos = 4 + magicLen;
+        const countBuf = Buffer.alloc(4);
+        fs.readSync(fd, countBuf, 0, 4, pos);
+        const fileCount = countBuf.readUInt32LE(0);
+        pos += 4;
+
+        let bestEntry = null;
+        let largestSize = 0;
+
+        for (let i = 0; i < fileCount; i++) {
+            const lenBuf = Buffer.alloc(4);
+            fs.readSync(fd, lenBuf, 0, 4, pos);
+            const nLen = lenBuf.readUInt32LE(0);
+            pos += 4;
+            const nameBuf = Buffer.alloc(nLen);
+            fs.readSync(fd, nameBuf, 0, nLen, pos);
+            const name = nameBuf.toString('utf8');
+            pos += nLen;
+            const offBuf = Buffer.alloc(8);
+            fs.readSync(fd, offBuf, 0, 8, pos);
+            const fOff = offBuf.readUInt32LE(0);
+            const fSize = offBuf.readUInt32LE(4);
+            pos += 8;
+
+            if (name.endsWith('.tex') || name.match(/\.(png|jpg|jpeg)$/i)) {
+                if (fSize > largestSize) {
+                    largestSize = fSize;
+                    bestEntry = { name, fOff, fSize };
+                }
+            }
+        }
+
+        const dataStart = pos;
+        if (!bestEntry || bestEntry.fSize < 10000) {
+            fs.closeSync(fd);
+            return null;
+        }
+
+        const fileData = Buffer.alloc(bestEntry.fSize);
+        fs.readSync(fd, fileData, 0, bestEntry.fSize, dataStart + bestEntry.fOff);
+        fs.closeSync(fd);
+
+        // Check for direct embedded PNG
+        const pngIdx = fileData.indexOf(Buffer.from([0x89, 0x50, 0x4e, 0x47]));
+        if (pngIdx !== -1) {
+            const iend = fileData.indexOf(Buffer.from([0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]), pngIdx);
+            const imgData = iend !== -1 ? fileData.slice(pngIdx, iend + 8) : fileData.slice(pngIdx);
+            fs.writeFileSync(cachedHighResPng, imgData);
+            return cachedHighResPng;
+        }
+
+        // Check for direct embedded JPEG
+        const jpgIdx = fileData.indexOf(Buffer.from([0xff, 0xd8, 0xff]));
+        if (jpgIdx !== -1) {
+            const eoi = fileData.indexOf(Buffer.from([0xff, 0xd9]), jpgIdx);
+            const imgData = eoi !== -1 ? fileData.slice(jpgIdx, eoi + 2) : fileData.slice(jpgIdx);
+            fs.writeFileSync(cachedHighResJpg, imgData);
+            return cachedHighResJpg;
+        }
+
+        return null;
+    } catch (e) {
+        console.error("[PKG Extraction] Error:", e.message);
+        return null;
+    }
+}
+
+/**
+ * Resolves Wallpaper Engine scenes (.pkg, .html) into true high-res artwork or fallback
  */
 function resolveMediaFile(rawPath) {
     if (!rawPath) return cachedWindowsWallpaper || "";
@@ -195,9 +307,16 @@ function resolveMediaFile(rawPath) {
         return cleanPath;
     }
 
-    // Wallpaper Engine Scene packages (.pkg, .html, .exe)
+    // Wallpaper Engine Scene packages (.pkg) - Extract true high-res 4K image!
+    if (ext === '.pkg') {
+        const highRes = extractHighResFromPkg(cleanPath);
+        if (highRes && fs.existsSync(highRes)) {
+            return highRes;
+        }
+    }
+
+    // Secondary checks for previews
     if (ext === '.pkg' || ext === '.html' || ext === '.exe') {
-        // 1. Check project.json in same workshop directory
         const projectJsonPath = path.join(dir, "project.json");
         if (fs.existsSync(projectJsonPath)) {
             try {
@@ -211,12 +330,11 @@ function resolveMediaFile(rawPath) {
             } catch (err) {}
         }
 
-        // 2. Scan directly for candidate previews in same directory
         const candidatePreviews = [
-            path.join(dir, "preview.gif"),
             path.join(dir, "preview.jpg"),
             path.join(dir, "preview.png"),
             path.join(dir, "preview.jpeg"),
+            path.join(dir, "preview.gif"),
             path.join(dir, "preview.webp")
         ];
 
@@ -227,7 +345,6 @@ function resolveMediaFile(rawPath) {
         }
     }
 
-    // TranscodedWallpaper without extension
     if (!ext && fs.existsSync(cleanPath) && fs.statSync(cleanPath).size > 0) {
         return cleanPath;
     }
@@ -243,14 +360,12 @@ function getFFmpegPath() {
         return process.env.FFMPEG_PATH;
     }
 
-    // Try where ffmpeg
     try {
         const out = execSync("where ffmpeg", { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"] });
         const first = out.split(/\r?\n/)[0]?.trim();
         if (first && fs.existsSync(first)) return first;
     } catch (e) {}
 
-    // Check WinGet default installation folder
     const wingetDir = path.join(process.env.LOCALAPPDATA || "", "Microsoft\\WinGet\\Packages");
     if (fs.existsSync(wingetDir)) {
         const scan = (d) => {
@@ -273,37 +388,6 @@ function getFFmpegPath() {
     }
 
     return "ffmpeg";
-}
-
-/**
- * Manages the video cache directory and prunes older videos (keeps newest 10)
- */
-function ensureCacheDir() {
-    const tempDir = path.join(os.tmpdir(), 'spotify_we_cache');
-    if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
-    } else {
-        try {
-            const files = fs.readdirSync(tempDir)
-                .filter(f => f.endsWith('.webm'))
-                .map(f => {
-                    const full = path.join(tempDir, f);
-                    return { name: f, time: fs.statSync(full).mtime.getTime() };
-                })
-                .sort((a, b) => b.time - a.time);
-
-            if (files.length > 10) {
-                for (let i = 10; i < files.length; i++) {
-                    try {
-                        fs.unlinkSync(path.join(tempDir, files[i].name));
-                    } catch (e) {}
-                }
-            }
-        } catch (e) {
-            console.error("[Cache Cleanup] Error:", e.message);
-        }
-    }
-    return tempDir;
 }
 
 /**
@@ -384,18 +468,14 @@ function isImageFile(filePath) {
     const ext = path.extname(filePath).toLowerCase();
     if (ext.match(/\.(jpg|jpeg|png|bmp|webp|gif)$/)) return true;
 
-    // Check magic bytes for extensionless files (like TranscodedWallpaper)
     try {
         const fd = fs.openSync(filePath, "r");
         const buf = Buffer.alloc(8);
         fs.readSync(fd, buf, 0, 8, 0);
         fs.closeSync(fd);
 
-        // JPEG: FF D8 FF
         if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true;
-        // PNG: 89 50 4E 47
         if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true;
-        // GIF: 47 49 46 38
         if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return true;
     } catch (e) {}
 
@@ -540,7 +620,6 @@ const server = http.createServer(async (req, res) => {
         } catch (e) {
             console.error("[Video Streaming] Error:", e.message);
 
-            // Fallback: If video transcoding fails, try serving fallback image instead of 500
             if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
                 try {
                     const fStat = fs.statSync(cachedWindowsWallpaper);
@@ -566,7 +645,7 @@ const server = http.createServer(async (req, res) => {
         res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
         res.end(JSON.stringify({
             status: "online",
-            version: "2.0.1",
+            version: "2.1.0",
             author: "Harilowji",
             wallpaperEngineRunning: isWeRunningCache,
             currentWallpaper: resolveMediaFile(getCurrentWallpaper() || cachedWindowsWallpaper)
@@ -602,7 +681,7 @@ server.on('error', (err) => {
 server.listen(PORT, HOST, () => {
     retryCount = 0;
     console.log(`====================================================`);
-    console.log(`🚀 Spotify x Wallpaper Engine Sync Server v2.0.1`);
+    console.log(`🚀 Spotify x Wallpaper Engine Sync Server v2.1.0`);
     console.log(`👤 Tác giả: Harilowji (https://github.com/Harilowji)`);
     console.log(`📡 Máy chủ đang lắng nghe tại: http://${HOST}:${PORT}`);
     console.log(`====================================================`);
