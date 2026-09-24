@@ -1,0 +1,119 @@
+/**
+ * Spotify x Wallpaper Engine Sync - Transparent Glassmorphism Theme
+ * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
+ * Version: 2.0.0
+ */
+
+:root {
+  --background-base: transparent !important;
+  --background-highlight: rgba(255, 255, 255, 0.1) !important;
+  --background-press: rgba(255, 255, 255, 0.2) !important;
+  --background-elevated-base: transparent !important;
+  --background-elevated-highlight: rgba(255, 255, 255, 0.1) !important;
+  --background-elevated-press: rgba(255, 255, 255, 0.2) !important;
+  --background-tinted-base: transparent !important;
+  --background-tinted-highlight: rgba(255, 255, 255, 0.1) !important;
+  --background-tinted-press: rgba(255, 255, 255, 0.2) !important;
+}
+
+/* Khung giao diện chính trong suốt (Main containers transparent) */
+body,
+html,
+#main,
+.Root__top-container,
+.Root__nav-block,
+.Root__main-view,
+.Root__now-playing-bar,
+.Root__right-sidebar,
+.main-view-container,
+.main-view-container__scroll-node,
+.main-view-container__scroll-node-child,
+.os-host,
+.os-padding,
+.os-viewport,
+.os-content {
+    background-color: transparent !important;
+    background: transparent !important;
+    background-image: none !important;
+}
+
+/* Xóa bỏ dải màu nền gradient và khối che (Header, Navigation bar, Blinders) */
+.main-entityHeader-background,
+.main-entityHeader-overlay,
+.main-entityHeader-backgroundColor,
+.main-actionBarBackground-background,
+.main-home-homeHeader,
+.main-topBar-background,
+.main-topBar-overlay,
+.main-view-container__scroll-node-child-blinder,
+.main-trackList-trackListHeader,
+.main-trackList-trackListHeaderStuck {
+    background-color: transparent !important;
+    background-image: none !important;
+    background: transparent !important;
+    opacity: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Thanh bên trái (Your Library) - Hiệu ứng kính mờ tối màu giúp đọc chữ rõ ràng */
+.main-yourLibraryX-entryPoints,
+.main-yourLibraryX-background,
+.main-yourLibraryX-libraryContainer,
+.main-yourLibraryX-libraryIsCollapsed,
+.main-yourLibraryX-isCollapsed,
+.main-yourLibraryX-library,
+.main-nowPlayingView-contextItemInfo,
+.main-nowPlayingView-section,
+.main-nowPlayingView-aboutArtistV2,
+.main-nowPlayingView-content {
+    background-color: rgba(0, 0, 0, 0.28) !important;
+    background: rgba(0, 0, 0, 0.28) !important;
+    backdrop-filter: blur(12px) !important;
+    border-radius: 12px !important;
+}
+
+/* Thanh điều hướng và thanh bên phải */
+.main-yourLibraryX,
+.Root__nav-bar,
+.Root__right-sidebar aside {
+    background-color: transparent !important;
+    background: transparent !important;
+}
+
+/* Thanh phát nhạc bên dưới (Now Playing Bar) với nền mờ cao cấp */
+.main-nowPlayingBar-container {
+    background-color: rgba(0, 0, 0, 0.45) !important; 
+    backdrop-filter: blur(16px) !important;
+    border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Ẩn thanh cuộn thừa để giao diện thanh thoát */
+.os-scrollbar {
+    display: none !important;
+}
+
+/* Thẻ album/playlist dạng kính mờ (Cards) */
+.main-card-card {
+    background-color: rgba(0, 0, 0, 0.35) !important;
+    backdrop-filter: blur(8px) !important;
+    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    border-radius: 10px !important;
+    box-shadow: none !important;
+    transition: background-color 0.25s ease, transform 0.2s ease !important;
+}
+
+.main-card-card:hover {
+    background-color: rgba(255, 255, 255, 0.12) !important;
+    transform: translateY(-2px);
+}
+
+/* Hiệu ứng di chuột qua danh sách bài hát */
+.main-trackList-trackListRow:hover {
+    background-color: rgba(255, 255, 255, 0.15) !important;
+}
+
+/* Nền hiển thị lời bài hát (Lyrics view) trong suốt */
+.lyrics-lyrics-background {
+    background-color: transparent !important;
+    background: transparent !important;
+}

@@ -1,0 +1,25 @@
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment & Cache
+.env
+*.tmp
+*.webm
+*.log
+
+# Temp cache folder
+spotify_we_cache/
+
+# OS specific
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# IDE & Editor
+.vscode/
+.idea/
+*.suo
+*.user

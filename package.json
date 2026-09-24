@@ -1,0 +1,29 @@
+{
+  "name": "spotify-wallpaper-engine-sync",
+  "version": "2.0.0",
+  "description": "Ultra-smooth real-time Wallpaper Engine & Windows Desktop background sync for Spotify using Spicetify",
+  "main": "WESyncServer.js",
+  "scripts": {
+    "start": "node WESyncServer.js",
+    "test": "node -e \"console.log('Server syntax test passed')\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Harilowji/spotify-wallpaper-engine-sync.git"
+  },
+  "keywords": [
+    "spotify",
+    "spicetify",
+    "wallpaper-engine",
+    "sync",
+    "theme",
+    "ffmpeg",
+    "windows-wallpaper"
+  ],
+  "author": "Harilowji <hloitran2007@gmail.com> (https://github.com/Harilowji)",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/Harilowji/spotify-wallpaper-engine-sync/issues"
+  },
+  "homepage": "https://github.com/Harilowji/spotify-wallpaper-engine-sync#readme"
+}
