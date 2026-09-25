@@ -292,9 +292,27 @@ function resolveMediaFile(rawPath) {
         }
     }
 
+    const dir = path.dirname(rawPath);
+
+    // Nếu rawPath không phải đuôi .pkg nhưng trong thư mục có file .pkg (ví dụ scene.json, gifscene.json)
+    if (ext !== ".pkg") {
+        const pkgCandidates = [
+            path.join(dir, "scene.pkg"),
+            path.join(dir, "gifscene.pkg")
+        ];
+        for (const pkg of pkgCandidates) {
+            if (fs.existsSync(pkg)) {
+                const cacheDir = ensureCacheDir();
+                const hdImage = extractPkgTexture(pkg, cacheDir);
+                if (hdImage && fs.existsSync(hdImage) && fs.statSync(hdImage).size > 0) {
+                    return hdImage;
+                }
+            }
+        }
+    }
+
     // Nếu không trích xuất được HD từ .pkg hoặc là Web Wallpaper (.html)
     // Tự động tìm ảnh preview trong thư mục workshop
-    const dir = path.dirname(rawPath);
     const candidates = [
         path.join(dir, "preview.jpg"),
         path.join(dir, "preview.png"),
@@ -315,13 +333,25 @@ function resolveMediaFile(rawPath) {
             const data = JSON.parse(fs.readFileSync(projectJson, "utf-8"));
             if (data.preview) {
                 const prev = path.join(dir, data.preview.replace(/\//g, "\\"));
-                if (fs.existsSync(prev)) return prev;
+                if (fs.existsSync(prev) && fs.statSync(prev).size > 0) return prev;
             }
             if (data.general && data.general.properties && data.general.properties.file) {
                 const subFile = path.join(dir, data.general.properties.file.value || "");
-                if (fs.existsSync(subFile)) return subFile;
+                if (fs.existsSync(subFile) && fs.statSync(subFile).size > 0) return subFile;
             }
         } catch (e) {}
+    }
+
+    // Kiểm tra nếu rawPath là file media hợp lệ
+    const finalExt = path.extname(rawPath).toLowerCase();
+    if (finalExt.match(/\.(mp4|webm|avi|mkv|mov|jpg|jpeg|png|bmp|webp|gif)$/)) {
+        return rawPath;
+    }
+
+    // Nếu hoàn toàn không tìm thấy media hợp lệ từ Wallpaper Engine
+    // Fallback thông minh về hình nền mặc định Windows chất lượng cao
+    if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
+        return cachedWindowsWallpaper;
     }
 
     return rawPath;
