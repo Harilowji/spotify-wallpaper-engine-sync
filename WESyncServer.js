@@ -28,16 +28,20 @@ const PORT = 8989;
 let isWeRunningCache = false;
 
 function checkWeRunning() {
-    exec('tasklist /fi "imagename eq wallpaper64.exe" /fi "imagename eq wallpaper32.exe" /fo csv /nh', (err, stdout) => {
-        if (!err && stdout) {
-            isWeRunningCache = stdout.toLowerCase().includes("wallpaper64.exe") || stdout.toLowerCase().includes("wallpaper32.exe");
-        } else {
-            isWeRunningCache = false;
-        }
+    exec('tasklist | findstr /i "wallpaper32.exe wallpaper64.exe ui32.exe"', (err, stdout) => {
+        isWeRunningCache = !err && !!stdout && stdout.trim().length > 0;
     });
 }
+
+// Kiểm tra đồng bộ ngay lúc khởi động để không bị trễ khi máy tính vừa mở
+try {
+    const out = execSync('tasklist | findstr /i "wallpaper32.exe wallpaper64.exe ui32.exe"', { encoding: 'utf-8', windowsHide: true });
+    isWeRunningCache = !!out && out.trim().length > 0;
+} catch (e) {
+    isWeRunningCache = false;
+}
 setInterval(checkWeRunning, 5000);
-checkWeRunning();
+
 
 // Quản lý các tiến trình FFmpeg đang chuyển mã để tránh trùng lặp
 const transcodingJobs = new Map();
@@ -376,9 +380,22 @@ const server = http.createServer(async (req, res) => {
     // Endpoint: /path - Trả về đường dẫn hình nền hiện tại
     if (req.url.startsWith("/path")) {
         let wp = "";
-        if (isWeRunningCache) {
-            wp = getCurrentWallpaper();
+        const weWp = getCurrentWallpaper();
+
+        if (isWeRunningCache && weWp && fs.existsSync(weWp)) {
+            wp = weWp;
+        } else if (weWp && fs.existsSync(weWp)) {
+            // Kiểm tra tức thời phòng trường hợp Wallpaper Engine vừa khởi động cùng Windows
+            try {
+                const out = execSync('tasklist | findstr /i "wallpaper32.exe wallpaper64.exe ui32.exe"', { encoding: 'utf-8', windowsHide: true });
+                if (out && out.trim().length > 0) {
+                    isWeRunningCache = true;
+                    wp = weWp;
+                }
+            } catch (e) {}
         }
+
+        // Fallback sang hình nền Windows nếu Wallpaper Engine không hoạt động
         if (!wp || !fs.existsSync(wp)) {
             if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
                 wp = cachedWindowsWallpaper;
@@ -395,9 +412,20 @@ const server = http.createServer(async (req, res) => {
     // Endpoint: /media hoặc /video - Phục vụ file ảnh hoặc video
     if (req.url.startsWith("/media") || req.url.startsWith("/video")) {
         let wp = "";
-        if (isWeRunningCache) {
-            wp = getCurrentWallpaper();
+        const weWp = getCurrentWallpaper();
+
+        if (isWeRunningCache && weWp && fs.existsSync(weWp)) {
+            wp = weWp;
+        } else if (weWp && fs.existsSync(weWp)) {
+            try {
+                const out = execSync('tasklist | findstr /i "wallpaper32.exe wallpaper64.exe ui32.exe"', { encoding: 'utf-8', windowsHide: true });
+                if (out && out.trim().length > 0) {
+                    isWeRunningCache = true;
+                    wp = weWp;
+                }
+            } catch (e) {}
         }
+
         if (!wp || !fs.existsSync(wp)) {
             if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
                 wp = cachedWindowsWallpaper;

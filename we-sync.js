@@ -202,8 +202,15 @@
                 return;
             }
 
+            function isWindowsFallback(pathStr) {
+                if (!pathStr) return false;
+                const lower = pathStr.toLowerCase();
+                return lower.includes("windows\\web\\wallpaper") || lower.includes("transcodedwallpaper") || lower.includes("img0.jpg");
+            }
+
             if (bgFile !== currentBg && bgFile !== ignoredBg) {
-                if (currentBg === "") {
+                // Tự động chuyển ngay sang Wallpaper Engine nếu trước đó chỉ tạm nạp hình nền mặc định Windows lúc khởi động
+                if (currentBg === "" || isWindowsFallback(currentBg)) {
                     applyBackground(bgFile, isImage, isVideo);
                 } else {
                     showUpdatePrompt(bgFile, isImage, isVideo);
