@@ -165,7 +165,113 @@ function getCurrentWallpaper() {
 }
 
 // ==========================================
-// 5. Phân giải file media (Hỗ trợ cả Scene .pkg & ảnh)
+// 5. Trích xuất Texture gốc HD/4K từ Wallpaper Engine Scene (.pkg)
+// ==========================================
+function extractPkgTexture(pkgPath, cacheDir) {
+    try {
+        const hash = crypto.createHash("md5").update(pkgPath).digest("hex");
+        const cachedPng = path.join(cacheDir, `${hash}_hd.png`);
+        const cachedJpg = path.join(cacheDir, `${hash}_hd.jpg`);
+
+        if (fs.existsSync(cachedPng) && fs.statSync(cachedPng).size > 0) return cachedPng;
+        if (fs.existsSync(cachedJpg) && fs.statSync(cachedJpg).size > 0) return cachedJpg;
+
+        const fd = fs.openSync(pkgPath, "r");
+        const headerLenBuf = Buffer.alloc(4);
+        fs.readSync(fd, headerLenBuf, 0, 4, 0);
+        const magicLen = headerLenBuf.readUInt32LE(0);
+
+        if (magicLen <= 0 || magicLen > 32) {
+            fs.closeSync(fd);
+            return null;
+        }
+
+        const magicBuf = Buffer.alloc(magicLen);
+        fs.readSync(fd, magicBuf, 0, magicLen, 4);
+        const magic = magicBuf.toString("utf-8");
+
+        if (!magic.startsWith("PKGV")) {
+            fs.closeSync(fd);
+            return null;
+        }
+
+        const countBuf = Buffer.alloc(4);
+        fs.readSync(fd, countBuf, 0, 4, 4 + magicLen);
+        const fileCount = countBuf.readUInt32LE(0);
+
+        let curPos = 4 + magicLen + 4;
+        let largestTex = null;
+
+        for (let i = 0; i < fileCount; i++) {
+            const nlBuf = Buffer.alloc(4);
+            fs.readSync(fd, nlBuf, 0, 4, curPos);
+            const nameLen = nlBuf.readUInt32LE(0);
+            curPos += 4;
+
+            const nameBuf = Buffer.alloc(nameLen);
+            fs.readSync(fd, nameBuf, 0, nameLen, curPos);
+            const name = nameBuf.toString("utf-8");
+            curPos += nameLen;
+
+            const metaBuf = Buffer.alloc(8);
+            fs.readSync(fd, metaBuf, 0, 8, curPos);
+            const offset = metaBuf.readUInt32LE(0);
+            const size = metaBuf.readUInt32LE(4);
+            curPos += 8;
+
+            if (name.endsWith(".tex") || name.endsWith(".png") || name.endsWith(".jpg")) {
+                if (!largestTex || size > largestTex.size) {
+                    largestTex = { name, offset, size };
+                }
+            }
+        }
+
+        const headerEnd = curPos;
+
+        if (!largestTex) {
+            fs.closeSync(fd);
+            return null;
+        }
+
+        // Đọc texture lớn nhất (ảnh nền chính của scene)
+        const texOffset = headerEnd + largestTex.offset;
+        const texBuf = Buffer.alloc(largestTex.size);
+        fs.readSync(fd, texBuf, 0, largestTex.size, texOffset);
+        fs.closeSync(fd);
+
+        // Tìm kiếm cấu trúc ảnh PNG gốc
+        const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+        const pngIdx = texBuf.indexOf(pngHeader);
+        if (pngIdx !== -1) {
+            const iend = texBuf.indexOf(Buffer.from([0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]), pngIdx);
+            if (iend !== -1) {
+                const pngData = texBuf.slice(pngIdx, iend + 8);
+                fs.writeFileSync(cachedPng, pngData);
+                return cachedPng;
+            }
+        }
+
+        // Tìm kiếm cấu trúc ảnh JPEG gốc
+        const jpgHeader = Buffer.from([0xff, 0xd8, 0xff]);
+        const jpgIdx = texBuf.indexOf(jpgHeader);
+        if (jpgIdx !== -1) {
+            const eoi = texBuf.indexOf(Buffer.from([0xff, 0xd9]), jpgIdx);
+            if (eoi !== -1) {
+                const jpgData = texBuf.slice(jpgIdx, eoi + 2);
+                fs.writeFileSync(cachedJpg, jpgData);
+                return cachedJpg;
+            }
+        }
+
+        return null;
+    } catch (e) {
+        console.error("[PKG Extractor] Lỗi trích xuất:", e.message);
+        return null;
+    }
+}
+
+// ==========================================
+// 6. Phân giải file media (Hỗ trợ Scene HD/4K, Video & Ảnh)
 // ==========================================
 function resolveMediaFile(rawPath) {
     if (!rawPath || !fs.existsSync(rawPath)) return "";
@@ -177,8 +283,17 @@ function resolveMediaFile(rawPath) {
         return rawPath;
     }
 
-    // Nếu là Scene Wallpaper Engine (.pkg) hoặc Web Wallpaper (.html)
-    // Tự động tìm ảnh preview chất lượng cao trong thư mục workshop
+    // Nếu là Scene Wallpaper Engine (.pkg)
+    if (ext === ".pkg") {
+        const cacheDir = ensureCacheDir();
+        const hdImage = extractPkgTexture(rawPath, cacheDir);
+        if (hdImage && fs.existsSync(hdImage) && fs.statSync(hdImage).size > 0) {
+            return hdImage;
+        }
+    }
+
+    // Nếu không trích xuất được HD từ .pkg hoặc là Web Wallpaper (.html)
+    // Tự động tìm ảnh preview trong thư mục workshop
     const dir = path.dirname(rawPath);
     const candidates = [
         path.join(dir, "preview.jpg"),
@@ -213,25 +328,25 @@ function resolveMediaFile(rawPath) {
 }
 
 // ==========================================
-// 6. Quản lý thư mục Cache và Tự động Dọn dẹp
+// 7. Quản lý thư mục Cache và Tự động Dọn dẹp
 // ==========================================
 function ensureCacheDir() {
     const tempDir = path.join(os.tmpdir(), "spotify_we_cache");
     if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
     } else {
-        // Tự động xóa file cache cũ, chỉ giữ lại tối đa 10 video gần nhất
+        // Tự động dọn dẹp cache, chỉ giữ lại tối đa 15 tệp (video WebM / ảnh HD) gần nhất
         try {
             const files = fs.readdirSync(tempDir)
-                .filter(f => f.endsWith(".webm"))
+                .filter(f => f.endsWith(".webm") || f.endsWith(".png") || f.endsWith(".jpg"))
                 .map(f => ({
                     name: f,
                     time: fs.statSync(path.join(tempDir, f)).mtime.getTime()
                 }))
                 .sort((a, b) => b.time - a.time);
 
-            if (files.length > 10) {
-                for (let i = 10; i < files.length; i++) {
+            if (files.length > 15) {
+                for (let i = 15; i < files.length; i++) {
                     try {
                         fs.unlinkSync(path.join(tempDir, files[i].name));
                     } catch (e) {}
