@@ -95,11 +95,10 @@ html,
     display: none !important;
 }
 
-/* Thẻ album/playlist dạng kính mờ (Cards) */
+/* Thẻ album/playlist - Tối ưu hóa màu nền, loại bỏ backdrop-filter nặng nề */
 .main-card-card {
-    background-color: rgba(0, 0, 0, 0.35) !important;
-    backdrop-filter: blur(8px) !important;
-    border: 1px solid rgba(255, 255, 255, 0.05) !important;
+    background-color: rgba(0, 0, 0, 0.42) !important;
+    border: 1px solid rgba(255, 255, 255, 0.06) !important;
     border-radius: 10px !important;
     box-shadow: none !important;
     transition: background-color 0.25s ease, transform 0.2s ease !important;
@@ -120,3 +119,17 @@ html,
     background-color: transparent !important;
     background: transparent !important;
 }
+
+/* Tối ưu hóa lớp render phần cứng GPU cho media hình nền */
+#we-sync-img,
+#we-sync-video {
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+}
+
+#we-sync-overlay {
+    will-change: opacity;
+    transform: translateZ(0);
+}
+

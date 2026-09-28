@@ -11,8 +11,29 @@
     if (oldVideo) oldVideo.remove();
     const oldImg = document.getElementById("we-sync-img");
     if (oldImg) oldImg.remove();
+    const oldOverlay = document.getElementById("we-sync-overlay");
+    if (oldOverlay) oldOverlay.remove();
     const oldPrompt = document.getElementById("we-sync-prompt");
     if (oldPrompt) oldPrompt.remove();
+
+    // Lớp phủ bán trong suốt tĩnh tối ưu GPU (thay thế CSS brightness shader)
+    function ensureOverlay() {
+        let overlay = document.getElementById("we-sync-overlay");
+        if (!overlay) {
+            overlay = document.createElement("div");
+            overlay.id = "we-sync-overlay";
+            overlay.style.position = "fixed";
+            overlay.style.top = "0";
+            overlay.style.left = "0";
+            overlay.style.width = "100vw";
+            overlay.style.height = "100vh";
+            overlay.style.zIndex = "-1";
+            overlay.style.pointerEvents = "none";
+            overlay.style.backgroundColor = "rgba(0, 0, 0, 0.58)";
+            document.body.prepend(overlay);
+        }
+        return overlay;
+    }
 
     const debugText = document.createElement("div");
     debugText.id = "we-sync-debug";
@@ -95,9 +116,8 @@
             mediaEl.style.width = "100vw";
             mediaEl.style.height = "100vh";
             mediaEl.style.objectFit = "cover";
-            mediaEl.style.zIndex = "0";
+            mediaEl.style.zIndex = "-2";
             mediaEl.style.pointerEvents = "none";
-            mediaEl.style.filter = "brightness(0.4)";
             
             mediaEl.onload = () => {
                 debugText.innerText = "✅ Đã đồng bộ với hình nền!";
@@ -114,6 +134,7 @@
             
             mediaEl.src = "http://127.0.0.1:8989/media?t=" + Date.now();
             document.body.prepend(mediaEl);
+            ensureOverlay();
         } 
         else if (isVideo) {
             mediaEl = document.createElement("video");
@@ -128,9 +149,8 @@
             mediaEl.style.width = "100vw";
             mediaEl.style.height = "100vh";
             mediaEl.style.objectFit = "cover";
-            mediaEl.style.zIndex = "0";
+            mediaEl.style.zIndex = "-2";
             mediaEl.style.pointerEvents = "none";
-            mediaEl.style.filter = "brightness(0.4)";
 
             mediaEl.addEventListener("error", function(e) {
                 debugText.style.opacity = "1";
@@ -148,11 +168,12 @@
             });
 
             debugText.style.opacity = "1";
-            debugText.innerText = "⏳ Đang tối ưu chuyển mã video hình nền (khoảng 10s, vui lòng đợi)...";
+            debugText.innerText = "⏳ Đang tối ưu chuyển mã video hình nền...";
             isTranscoding = true;
             
             mediaEl.src = "http://127.0.0.1:8989/media?t=" + Date.now();
             document.body.prepend(mediaEl);
+            ensureOverlay();
             mediaEl.load();
             mediaEl.play().catch(function(err) {
                 debugText.style.opacity = "1";
@@ -162,6 +183,20 @@
             });
         }
     }
+
+    // Cơ chế Smart Pause: Tự động tạm dừng video khi cửa sổ Spotify bị ẩn hoặc thu nhỏ
+    document.addEventListener("visibilitychange", function() {
+        if (mediaEl && mediaEl.tagName === "VIDEO") {
+            if (document.hidden) {
+                mediaEl.pause();
+            } else {
+                mediaEl.play().catch(function() {});
+            }
+        }
+        if (!document.hidden && !isTranscoding) {
+            checkBg();
+        }
+    });
 
     async function checkBg() {
         try {
@@ -225,7 +260,15 @@
                 debugText.innerText = "🔌 Máy chủ chưa khởi động (vui lòng kiểm tra tiến trình nền)";
             }
         }
-        setTimeout(checkBg, retryCount > 3 ? 10000 : 3000);
+
+        // Tần số thích ứng: 5 giây khi hiển thị, 12 giây khi thu nhỏ/ẩn
+        let pollDelay = 5000;
+        if (document.hidden) {
+            pollDelay = 12000;
+        } else if (retryCount > 3) {
+            pollDelay = 10000;
+        }
+        setTimeout(checkBg, pollDelay);
     }
 
     checkBg();

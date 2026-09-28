@@ -133,12 +133,20 @@ function getWEConfigPath() {
 }
 
 // ==========================================
-// 4. Lấy hình nền Wallpaper Engine đang hoạt động
+// 4. Lấy hình nền Wallpaper Engine đang hoạt động (Tối ưu Cache I/O)
 // ==========================================
+let cachedCfgMtime = 0;
+let cachedCurrentWallpaper = "";
+
 function getCurrentWallpaper() {
     try {
         const cfgPath = getWEConfigPath();
         if (!fs.existsSync(cfgPath)) return "";
+
+        const stat = fs.statSync(cfgPath);
+        if (stat.mtimeMs === cachedCfgMtime && cachedCurrentWallpaper) {
+            return cachedCurrentWallpaper;
+        }
 
         const raw = fs.readFileSync(cfgPath, "utf-8");
         const config = JSON.parse(raw);
@@ -153,7 +161,9 @@ function getCurrentWallpaper() {
                 if (monitorKeys.length > 0) {
                     const wpObj = wallpapers[monitorKeys[0]];
                     if (wpObj && wpObj.file) {
-                        return wpObj.file.replace(/\//g, "\\");
+                        cachedCfgMtime = stat.mtimeMs;
+                        cachedCurrentWallpaper = wpObj.file.replace(/\//g, "\\");
+                        return cachedCurrentWallpaper;
                     }
                 }
             }
@@ -247,6 +257,7 @@ function extractPkgTexture(pkgPath, cacheDir) {
             if (iend !== -1) {
                 const pngData = texBuf.slice(pngIdx, iend + 8);
                 fs.writeFileSync(cachedPng, pngData);
+                cleanupOldCache(cacheDir);
                 return cachedPng;
             }
         }
@@ -259,6 +270,7 @@ function extractPkgTexture(pkgPath, cacheDir) {
             if (eoi !== -1) {
                 const jpgData = texBuf.slice(jpgIdx, eoi + 2);
                 fs.writeFileSync(cachedJpg, jpgData);
+                cleanupOldCache(cacheDir);
                 return cachedJpg;
             }
         }
@@ -271,11 +283,24 @@ function extractPkgTexture(pkgPath, cacheDir) {
 }
 
 // ==========================================
-// 6. Phân giải file media (Hỗ trợ Scene HD/4K, Video & Ảnh)
+// 6. Phân giải file media (Hỗ trợ Scene HD/4K, Video & Ảnh - Có Cache)
 // ==========================================
+let cachedResolvedRaw = "";
+let cachedResolvedResult = "";
+
 function resolveMediaFile(rawPath) {
     if (!rawPath || !fs.existsSync(rawPath)) return "";
+    if (rawPath === cachedResolvedRaw && cachedResolvedResult && fs.existsSync(cachedResolvedResult)) {
+        return cachedResolvedResult;
+    }
 
+    const result = _doResolveMediaFile(rawPath);
+    cachedResolvedRaw = rawPath;
+    cachedResolvedResult = result;
+    return result;
+}
+
+function _doResolveMediaFile(rawPath) {
     const ext = path.extname(rawPath).toLowerCase();
 
     // Nếu là file video hoặc ảnh trực tiếp
@@ -358,35 +383,34 @@ function resolveMediaFile(rawPath) {
 }
 
 // ==========================================
-// 7. Quản lý thư mục Cache và Tự động Dọn dẹp
+// 7. Quản lý thư mục Cache và Tự động Dọn dẹp (Tối ưu I/O)
 // ==========================================
 function ensureCacheDir() {
     const tempDir = path.join(os.tmpdir(), "spotify_we_cache");
     if (!fs.existsSync(tempDir)) {
         fs.mkdirSync(tempDir, { recursive: true });
-    } else {
-        // Tự động dọn dẹp cache, chỉ giữ lại tối đa 15 tệp (video WebM / ảnh HD) gần nhất
-        try {
-            const files = fs.readdirSync(tempDir)
-                .filter(f => f.endsWith(".webm") || f.endsWith(".png") || f.endsWith(".jpg"))
-                .map(f => ({
-                    name: f,
-                    time: fs.statSync(path.join(tempDir, f)).mtime.getTime()
-                }))
-                .sort((a, b) => b.time - a.time);
-
-            if (files.length > 15) {
-                for (let i = 15; i < files.length; i++) {
-                    try {
-                        fs.unlinkSync(path.join(tempDir, files[i].name));
-                    } catch (e) {}
-                }
-            }
-        } catch (e) {
-            console.error("[Cache] Lỗi dọn dẹp cache:", e.message);
-        }
     }
     return tempDir;
+}
+
+function cleanupOldCache(tempDir) {
+    try {
+        const files = fs.readdirSync(tempDir)
+            .filter(f => f.endsWith(".webm") || f.endsWith(".png") || f.endsWith(".jpg"))
+            .map(f => ({
+                name: f,
+                time: fs.statSync(path.join(tempDir, f)).mtime.getTime()
+            }))
+            .sort((a, b) => b.time - a.time);
+
+        if (files.length > 15) {
+            for (let i = 15; i < files.length; i++) {
+                try {
+                    fs.unlinkSync(path.join(tempDir, files[i].name));
+                } catch (e) {}
+            }
+        }
+    } catch (e) {}
 }
 
 // Tìm đường dẫn FFmpeg thực tế
@@ -408,9 +432,13 @@ function getFFmpegPath() {
 }
 
 // ==========================================
-// 7. Chuyển mã Video sang WebM bằng FFmpeg
+// 8. Chuyển mã Video sang WebM bằng FFmpeg (Tối ưu Real-time CPU & Không nén tiếng thừa)
 // ==========================================
 function transcodeVideo(wp, cacheDir) {
+    if (wp.toLowerCase().endsWith(".webm")) {
+        return Promise.resolve(wp);
+    }
+
     const hash = crypto.createHash("md5").update(wp).digest("hex");
     const cachedWebm = path.join(cacheDir, `${hash}.webm`);
     const tmpWebm = path.join(cacheDir, `${hash}.webm.tmp`);
@@ -428,16 +456,16 @@ function transcodeVideo(wp, cacheDir) {
     }
 
     const job = new Promise((resolve, reject) => {
-        console.log(`[FFmpeg] Đang chuyển mã video ${path.basename(wp)} sang WebM...`);
+        console.log(`[FFmpeg] Đang chuyển mã tối ưu video ${path.basename(wp)} sang WebM...`);
         const ffmpegExe = getFFmpegPath();
 
         const args = [
             "-y", "-i", wp,
-            "-t", "60",
+            "-t", "30",
             "-vf", "scale=-1:'min(1080,ih)'",
             "-r", "30",
-            "-c:v", "libvpx", "-b:v", "8M", "-crf", "12", "-cpu-used", "5", "-threads", "8",
-            "-c:a", "libvorbis",
+            "-c:v", "libvpx", "-b:v", "4M", "-crf", "26", "-deadline", "realtime", "-cpu-used", "8", "-threads", "4",
+            "-an",
             "-f", "webm",
             tmpWebm
         ];
@@ -455,6 +483,7 @@ function transcodeVideo(wp, cacheDir) {
                 try {
                     if (fs.existsSync(tmpWebm)) {
                         fs.renameSync(tmpWebm, cachedWebm);
+                        cleanupOldCache(cacheDir);
                     }
                     console.log(`[FFmpeg] Chuyển mã hoàn tất: ${hash}.webm`);
                     resolve(cachedWebm);
