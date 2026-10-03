@@ -53,10 +53,13 @@ Nếu bạn gặp phải bất kỳ vấn đề nào trong quá trình cài đ�
 
 ### 🔄 Tình huống 6: Spotify vừa cập nhật phiên bản mới làm mất nền
 * **Nguyên nhân:**
-  * Spotify tự động ghi đè file khi có bản cập nhật mới. Bộ cài `install.bat` đã tự động khóa quyền ghi thư mục `Update` để ngăn ngừa điều này, nhưng nếu Spotify vẫn cập nhật:
+  * Spotify tự động cập nhật phiên bản mới (như v1.3.3) và ghi đè gói `xpui.spa` gốc, làm mất mã can thiệp của Spicetify.
 * **Cách khắc phục:**
-  * Chỉ cần chạy lại file `install.bat` hoặc mở Terminal gõ:
+  * **Cách 1 (Nhanh nhất & Đơn giản nhất):** Nhấp đúp chuột chạy lại file `install.bat`. Trình cài đặt đã được nâng cấp cơ chế tự nhận diện phiên bản mới, tự dọn dẹp backup cũ và nạp lại toàn bộ mod chỉ trong 5 giây!
+  * **Cách 2 (Bằng dòng lệnh Terminal):** Mở PowerShell hoặc Command Prompt gõ lần lượt:
     ```bash
+    spicetify restore
+    spicetify clear
     spicetify backup apply
     ```
-    Giao diện và tính năng đồng bộ sẽ được khôi phục ngay lập tức!
+    Giao diện kính mờ và tính năng đồng bộ Wallpaper Engine sẽ xuất hiện trở lại ngay lập tức!

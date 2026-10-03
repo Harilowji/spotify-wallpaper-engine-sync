@@ -168,10 +168,16 @@ spicetify config extensions we-sync.js >nul 2>nul
 spicetify config current_theme TransparentTheme >nul 2>nul
 spicetify config inject_css 1 replace_colors 1 overwrite_assets 1 >nul 2>nul
 
-echo [THÔNG TIN] Đang khởi động lại Spotify để nạp cấu hình mới...
+echo [THÔNG TIN] Đang áp dụng thiết lập giao diện vào Spotify...
 taskkill /f /im spotify.exe >nul 2>nul
 timeout /t 2 /nobreak >nul
-spicetify apply || spicetify backup apply
+spicetify apply >nul 2>nul
+if %errorlevel% neq 0 (
+    echo [THÔNG TIN] Phát hiện Spotify vừa cập nhật phiên bản mới, đang tự động đồng bộ lại...
+    spicetify restore >nul 2>nul
+    spicetify clear >nul 2>nul
+    spicetify backup apply
+)
 
 :: ==========================================
 :: Khởi chạy máy chủ ngầm lần đầu
