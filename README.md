@@ -44,7 +44,11 @@
 ### 7. 🛡️ Cài Đặt Tự Động 1-Click & Chạy Ngầm Bền Bỉ
 * Script `install.bat` tự động phát hiện và cài đặt các công cụ thiếu (Node.js, FFmpeg, Spicetify).
 * Tạo tiến trình Daemon chạy ngầm khởi động cùng Windows, hoàn toàn ẩn không hiện cửa sổ đen.
-* Tự động khóa quyền cập nhật của Spotify để tránh việc cập nhật làm mất giao diện Spicetify.
+
+### 8. 🤖 Tự Động Nhận Diện Cập Nhật & Khôi Phục Mod (Auto-Healer Sentinel)
+* **Tự động kiểm tra định kỳ:** Dịch vụ ngầm WESync tự động kiểm tra phiên bản Spotify mỗi 15 phút và ngay khi khởi động máy.
+* **Tự khôi phục không cần thao tác:** Nếu Spotify tự ý cập nhật làm mất mod, hệ thống sẽ tự động dọn dẹp và nạp lại theme cùng tiện ích đồng bộ trong nền chỉ sau 5 giây mà không làm gián đoạn trải nghiệm của bạn!
+* **Công cụ kiểm tra 1-Click (`check_update.bat`):** Bạn cũng có thể nhấp đúp vào `check_update.bat` bất cứ lúc nào để kiểm tra ngay lập tức trạng thái hoạt động của mod.
 
 ---
 

@@ -537,7 +537,122 @@ function getImageMime(filePath) {
 }
 
 // ==========================================
-// 8. Khởi tạo HTTP Web Server
+// 8. Bộ tự động kiểm tra phiên bản & Khôi phục Mod Spotify (Auto-Healer Sentinel)
+// ==========================================
+let isHealing = false;
+
+function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
+    if (isHealing) return { status: "busy", message: "Đang trong tiến trình khôi phục mod..." };
+
+    const spotifyExe = path.join(process.env.APPDATA || "", "Spotify", "Spotify.exe");
+    const configIni = path.join(process.env.APPDATA || "", "spicetify", "config-xpui.ini");
+    const stateFile = path.join(process.env.APPDATA || "", "WESync", "spotify_version_state.json");
+    const xpuiDir = path.join(process.env.APPDATA || "", "Spotify", "Apps", "xpui");
+
+    if (!fs.existsSync(spotifyExe) || !fs.existsSync(configIni)) {
+        return { status: "not_found", message: "Không tìm thấy file cài đặt Spotify hoặc Spicetify trên máy" };
+    }
+
+    try {
+        const stat = fs.statSync(spotifyExe);
+        const currentMtime = stat.mtimeMs;
+        const currentSize = stat.size;
+
+        let savedState = null;
+        if (fs.existsSync(stateFile)) {
+            try { savedState = JSON.parse(fs.readFileSync(stateFile, "utf-8")); } catch (e) {}
+        }
+
+        // Nếu kiểm tra tự động và mtime/size chưa đổi, thư mục xpui vẫn còn -> Đang hoạt động bình thường
+        if (!isManual && !isForce && savedState && savedState.mtime === currentMtime && savedState.size === currentSize && fs.existsSync(xpuiDir)) {
+            return { status: "up_to_date", message: "Spotify vẫn ở phiên bản hiện tại, mod hoạt động bình thường." };
+        }
+
+        // Đọc phiên bản ProductVersion hiện tại của Spotify.exe
+        let currentProductVersion = "";
+        try {
+            const out = execSync(`powershell -NoProfile -Command "(Get-Item '${spotifyExe}').VersionInfo.ProductVersion"`, { encoding: "utf-8", timeout: 6000, windowsHide: true });
+            if (out) currentProductVersion = out.trim();
+        } catch (e) {}
+
+        // Đọc phiên bản đã backup trong config-xpui.ini của Spicetify
+        let backupVersion = "";
+        try {
+            const iniText = fs.readFileSync(configIni, "utf-8");
+            const m = iniText.match(/\[Backup\][\s\S]*?version\s*=\s*([^\r\n]+)/i);
+            if (m) backupVersion = m[1].trim();
+        } catch (e) {}
+
+        // Nếu phiên bản khớp nhau và thư mục xpui vẫn tồn tại -> Cập nhật trạng thái và trả về kết quả ngay lập tức
+        if (!isForce && currentProductVersion && backupVersion.startsWith(currentProductVersion) && fs.existsSync(xpuiDir)) {
+            fs.writeFileSync(stateFile, JSON.stringify({ mtime: currentMtime, size: currentSize, version: currentProductVersion, lastChecked: Date.now() }, null, 2));
+            return {
+                status: "up_to_date",
+                message: "Spotify đang ở phiên bản mới nhất và mod đang hoạt động hoàn hảo!",
+                currentVersion: currentProductVersion,
+                backupVersion: backupVersion
+            };
+        }
+
+        // PHÁT HIỆN SPOTIFY VỪA CẬP NHẬT HOẶC MẤT MOD!
+        isHealing = true;
+        console.log(`[Auto-Healer] 🚨 Phát hiện Spotify vừa cập nhật (Hiện tại: ${currentProductVersion || "Mới"}, Backup cũ: ${backupVersion})!`);
+        console.log("[Auto-Healer] 🛠️ Đang tự động dọn dẹp và khôi phục mod cho phiên bản mới...");
+
+        // Kiểm tra xem Spotify có đang chạy không
+        let wasRunning = false;
+        try {
+            const taskOut = execSync('tasklist /fi "imagename eq spotify.exe"', { encoding: "utf-8", windowsHide: true });
+            if (taskOut.toLowerCase().includes("spotify.exe")) {
+                wasRunning = true;
+                execSync("taskkill /f /im spotify.exe", { windowsHide: true });
+                execSync('powershell -NoProfile -Command "Start-Sleep -Seconds 2"', { windowsHide: true });
+            }
+        } catch (e) {}
+
+        // Thực hiện chu kỳ khôi phục và nạp lại Spicetify
+        try {
+            execSync("spicetify restore", { windowsHide: true });
+            execSync("spicetify clear", { windowsHide: true });
+            execSync("spicetify backup apply -n", { windowsHide: true });
+        } catch (err) {
+            console.error("[Auto-Healer] Lỗi khi chạy lệnh spicetify:", err.message);
+        }
+
+        // Ghi lại trạng thái mới
+        fs.writeFileSync(stateFile, JSON.stringify({
+            mtime: currentMtime,
+            size: currentSize,
+            version: currentProductVersion,
+            lastChecked: Date.now(),
+            lastHealed: Date.now()
+        }, null, 2));
+
+        console.log("[Auto-Healer] ✅ Đã tự động cập nhật và khôi phục mod thành công!");
+
+        // Khởi động lại Spotify nếu trước đó đang mở
+        if (wasRunning) {
+            try {
+                execSync('powershell -NoProfile -Command "Start-Process \'cmd.exe\' -ArgumentList \'/c start spotify:\'"', { windowsHide: true });
+            } catch (e) {}
+        }
+
+        isHealing = false;
+        return {
+            status: "healed",
+            message: "Đã tự động nhận diện bản cập nhật và nạp lại mod thành công!",
+            currentVersion: currentProductVersion,
+            backupVersion: backupVersion
+        };
+    } catch (err) {
+        isHealing = false;
+        console.error("[Auto-Healer] Lỗi trong quá trình kiểm tra:", err.message);
+        return { status: "error", message: err.message };
+    }
+}
+
+// ==========================================
+// 9. Khởi tạo HTTP Web Server
 // ==========================================
 const server = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -548,6 +663,15 @@ const server = http.createServer(async (req, res) => {
     if (req.method === "OPTIONS") {
         res.writeHead(204);
         res.end();
+        return;
+    }
+
+    // Endpoint: /check-update - Kích hoạt kiểm tra và tự động khôi phục phiên bản Spotify
+    if (req.url.startsWith("/check-update")) {
+        const isForce = req.url.includes("force=true") || req.url.includes("force=1");
+        const result = checkAndHealSpotifyUpdate(true, isForce);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(result, null, 2));
         return;
     }
 
@@ -706,6 +830,15 @@ server.on("error", (err) => {
 server.listen(PORT, "127.0.0.1", () => {
     retryCount = 0;
     console.log(`[WESync Server] Đang chạy tại http://127.0.0.1:${PORT}`);
+
+    // Khởi chạy bộ kiểm tra phiên bản tự động (sau khi khởi động 10 giây và lặp lại mỗi 15 phút)
+    setTimeout(() => {
+        try { checkAndHealSpotifyUpdate(false); } catch (e) {}
+    }, 10000);
+
+    setInterval(() => {
+        try { checkAndHealSpotifyUpdate(false); } catch (e) {}
+    }, 15 * 60 * 1000);
 });
 
 process.on("uncaughtException", (err) => {
