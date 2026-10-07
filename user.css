@@ -164,14 +164,14 @@ aside[data-testid="now-playing-bar"],
     border-top: none !important;
 }
 
-/* Khóa kích thước & Căn chỉnh hình ảnh chú mèo (Cat Jam) đều với các icons khác và cân đối khoảng cách */
+/* Khóa kích thước & Căn chỉnh hình ảnh chú mèo (Cat Jam) đều với các icons khác và đặt sát sạt cạnh mic lấp lánh */
 #catjam-webm,
 video[id*="cat"] {
     width: 36px !important;
     height: 36px !important;
     max-width: 38px !important;
     max-height: 38px !important;
-    margin: 0 8px 0 12px !important;
+    margin: 0 4px 0 0 !important;
     align-self: center !important;
     object-fit: contain !important;
     flex-shrink: 0 !important;
@@ -229,7 +229,12 @@ button[data-testid="cover-art-button"],
 
 .main-nowPlayingBar-right {
     justify-content: flex-end !important;
-    gap: 4px !important;
+    gap: 0 !important;
+}
+
+.main-nowPlayingBar-extraControls {
+    flex-grow: 0 !important;
+    flex-shrink: 0 !important;
 }
 
 .main-nowPlayingWidget-nowPlaying {
