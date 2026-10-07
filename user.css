@@ -145,16 +145,65 @@ section[data-testid="entity-page"] {
 }
 
 /* ==========================================================================
-   5. THANH PHÁT NHẠC DƯỚI CÙNG (NOW PLAYING BAR)
+   5. THANH PHÁT NHẠC DƯỚI CÙNG (NOW PLAYING BAR) TRONG SUỐT HOÀN TOÀN
    ========================================================================== */
+.Root__top-container > div:has(> [data-testid="now-playing-bar"]),
+.Root__top-container > div:has(> .main-nowPlayingBar-container),
+.Root__top-container > div:has(aside),
+.z0qdvwslOFVOAihShLIq,
 .Root__now-playing-bar,
+footer,
+aside[data-testid="now-playing-bar"],
 .main-nowPlayingBar-container,
 .main-nowPlayingBar-nowPlayingBar {
     background-color: transparent !important;
     background: transparent !important;
     backdrop-filter: none !important;
     box-shadow: none !important;
+    border: none !important;
     border-top: none !important;
+}
+
+/* Đảm bảo text tiêu đề, nghệ sĩ và thời gian sắc nét trên mọi hình nền */
+.main-nowPlayingWidget-trackInfo,
+.main-trackInfo-container,
+.main-nowPlayingBar-left {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7) !important;
+}
+
+.main-trackInfo-name a,
+.main-trackInfo-artists a {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7) !important;
+}
+
+/* Nút điều khiển âm nhạc rõ nét, tương tác mượt mà thân thiện người dùng */
+.player-controls__buttons button,
+.main-nowPlayingBar-extraControls button {
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+    transition: transform 0.15s ease, filter 0.15s ease, color 0.15s ease !important;
+}
+
+.player-controls__buttons button:hover,
+.main-nowPlayingBar-extraControls button:hover {
+    transform: scale(1.08);
+    filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.9));
+}
+
+/* Thanh tiến trình thời gian và thanh âm lượng nổi bật, dễ quan sát */
+.playback-bar .x-progressBar-progressBarBg,
+.volume-bar .x-progressBar-progressBarBg {
+    background-color: rgba(255, 255, 255, 0.25) !important;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
+}
+
+.playback-bar:hover .x-progressBar-fillColor,
+.volume-bar:hover .x-progressBar-fillColor {
+    background-color: #1ed760 !important;
+}
+
+.playback-bar-timeRange {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7) !important;
+    font-weight: 500 !important;
 }
 
 /* ==========================================================================
