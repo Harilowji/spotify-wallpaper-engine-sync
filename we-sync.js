@@ -271,5 +271,92 @@
         setTimeout(checkBg, pollDelay);
     }
 
+    // =========================================================================
+    // HỖ TRỢ TƯƠNG THÍCH SPOTIFY v1.3.4+ & CÁC EXTENSION (CAT-JAM, CONTROLS)
+    // =========================================================================
+    function initSpotifyLayoutBridge() {
+        function patchBar() {
+            const bar = document.querySelector('[data-testid="now-playing-bar"]');
+            if (!bar) return;
+
+            bar.classList.add('main-nowPlayingBar-container');
+
+            const row = bar.firstElementChild;
+            if (!row || row.children.length < 3) return;
+
+            row.classList.add('main-nowPlayingBar-nowPlayingBar');
+
+            const left = row.children[0];
+            const center = row.children[1];
+            const right = row.children[2];
+            // extraControls là thẻ div chứa các nút điều khiển, loại trừ video cat
+            const extraControls = right ? Array.from(right.children).find(el => el.tagName === 'DIV') : null;
+
+            if (left && !left.classList.contains('main-nowPlayingBar-left')) {
+                left.classList.add('main-nowPlayingBar-left');
+            }
+            if (center && !center.classList.contains('main-nowPlayingBar-center')) {
+                center.classList.add('main-nowPlayingBar-center');
+            }
+            if (right && !right.classList.contains('main-nowPlayingBar-right')) {
+                right.classList.add('main-nowPlayingBar-right');
+            }
+            if (extraControls && !extraControls.classList.contains('main-nowPlayingBar-extraControls')) {
+                extraControls.classList.add('main-nowPlayingBar-extraControls');
+            }
+
+            // Dọn dẹp video cat trùng lặp nếu có
+            const allCats = document.querySelectorAll('#catjam-webm');
+            if (allCats.length > 1) {
+                for (let i = 1; i < allCats.length; i++) allCats[i].remove();
+            }
+            if (allCats.length > 0) {
+                allCats[0].classList.remove('main-nowPlayingBar-extraControls');
+            }
+
+            // Đảm bảo chú mèo Cat-Jam luôn được gắn vào thanh bên phải nếu extension cat-jam đang hoạt động
+            const isCatjamEnabled = localStorage.getItem('catjam-settings.catjam-webm-position') !== null ||
+                                    document.querySelector('script[src*="cat-jam"]') !== null;
+            if (isCatjamEnabled && right && !document.getElementById('catjam-webm')) {
+                const cat = document.createElement('video');
+                cat.id = 'catjam-webm';
+                cat.setAttribute('loop', 'true');
+                cat.setAttribute('autoplay', 'true');
+                cat.setAttribute('muted', 'true');
+                cat.setAttribute('style', 'width: 65px; height: 65px;');
+                let catSrc = 'https://github.com/BlafKing/spicetify-cat-jam-synced/raw/main/src/resources/catjam.webm';
+                try {
+                    const storedLink = JSON.parse(localStorage.getItem('catjam-settings.catjam-webm-link') || '{}')?.value;
+                    if (storedLink) catSrc = storedLink;
+                } catch(e) {}
+                cat.src = catSrc;
+                right.firstChild ? right.insertBefore(cat, right.firstChild) : right.appendChild(cat);
+                if (window.Spicetify?.Player?.isPlaying()) {
+                    cat.play().catch(() => {});
+                }
+            }
+        }
+
+        patchBar();
+        const obs = new MutationObserver(() => {
+            patchBar();
+        });
+        obs.observe(document.body, { childList: true, subtree: true });
+
+        // Đồng bộ play/pause chú mèo khi người dùng bật/dừng nhạc
+        if (window.Spicetify?.Player) {
+            window.Spicetify.Player.addEventListener('onplaypause', () => {
+                const cat = document.getElementById('catjam-webm');
+                if (!cat) return;
+                if (window.Spicetify.Player.isPlaying()) {
+                    cat.play().catch(() => {});
+                } else {
+                    cat.pause();
+                }
+            });
+        }
+    }
+
+    initSpotifyLayoutBridge();
     checkBg();
 })();

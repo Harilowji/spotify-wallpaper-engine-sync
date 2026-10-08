@@ -1,7 +1,7 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.1.2
+ * Version: 2.1.3
  */
 
 :root {
@@ -210,43 +210,73 @@ button[data-testid="cover-art-button"],
     border-radius: 6px !important;
 }
 
-/* Đảm bảo căn giữa thẳng hàng tuyệt đối và chống tràn cho các phân vùng */
-.main-nowPlayingBar-left,
-.main-nowPlayingBar-right {
-    display: flex !important;
-    align-items: center !important;
-}
-
-.main-nowPlayingBar-center {
-    display: block !important;
-    width: 40% !important;
-    max-width: 722px !important;
-}
-
-.main-nowPlayingBar-center .nlflc_kABDtTGWXebiA6 {
+/* Đảm bảo toàn bộ hàng phát nhạc dàn đều 100% chiều rộng */
+[data-testid="now-playing-bar"],
+.main-nowPlayingBar-container {
     width: 100% !important;
 }
 
-.main-nowPlayingBar-right {
+[data-testid="now-playing-bar"] > div,
+.main-nowPlayingBar-container > footer,
+.main-nowPlayingBar-nowPlayingBar {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: row !important;
+    justify-content: space-between !important;
+    align-items: center !important;
+    overflow: hidden !important;
+}
+
+/* Đảm bảo căn giữa thẳng hàng tuyệt đối và phân bổ 3 phân vùng (Trái 30%, Giữa 40%, Phải 30%) */
+.main-nowPlayingBar-left,
+[data-testid="now-playing-bar"] > div > div:first-child {
+    display: flex !important;
+    align-items: center !important;
+    min-width: 180px !important;
+    width: 30% !important;
+    flex-grow: 0 !important;
+    flex-shrink: 1 !important;
+}
+
+.main-nowPlayingBar-center,
+[data-testid="now-playing-bar"] > div > div:nth-child(2) {
+    display: block !important;
+    width: 40% !important;
+    max-width: 722px !important;
+    flex-grow: 1 !important;
+}
+
+.main-nowPlayingBar-center .nlflc_kABDtTGWXebiA6,
+[data-testid="player-controls"] {
+    width: 100% !important;
+}
+
+.main-nowPlayingBar-right,
+[data-testid="now-playing-bar"] > div > div:last-child {
+    display: flex !important;
+    align-items: center !important;
     justify-content: flex-end !important;
+    min-width: 180px !important;
+    width: 30% !important;
+    flex-grow: 0 !important;
+    flex-shrink: 1 !important;
     gap: 0 !important;
 }
 
-.main-nowPlayingBar-extraControls {
+.main-nowPlayingBar-extraControls,
+[data-testid="now-playing-bar"] > div > div:last-child > div:last-child {
+    display: flex !important;
+    justify-content: flex-end !important;
     flex-grow: 0 !important;
     flex-shrink: 0 !important;
 }
 
-.main-nowPlayingWidget-nowPlaying {
+.main-nowPlayingWidget-nowPlaying,
+[data-testid="now-playing-widget"] {
     display: flex !important;
     align-items: center !important;
     gap: 10px !important;
     max-width: 100% !important;
-    overflow: hidden !important;
-}
-
-.main-nowPlayingBar-nowPlayingBar {
-    align-items: center !important;
     overflow: hidden !important;
 }
 
