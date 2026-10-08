@@ -65,8 +65,15 @@ html,
 }
 
 /* ==========================================================================
-   2. XÓA TRIỆT ĐỂ KHỐI HỘP NỀN XÁM Ở TRANG CHỦ (HOME HEADER) VÀ PLAYLIST
+   2. XÓA TRIỆT ĐỂ KHỐI HỘP NỀN Ở TRANG CHỦ, PLAYLIST VÀ TRANG NGHỆ SĨ (ARTIST)
    ========================================================================== */
+/* Hiệu ứng mờ dần ảnh bìa nghệ sĩ khi cuộn trang để lộ trọn vẹn Wallpaper Engine */
+@keyframes weArtistBannerFadeOnScroll {
+    0% { opacity: 1; }
+    40% { opacity: 0; }
+    100% { opacity: 0; }
+}
+
 /* Các lớp nền thuần túy (Background layers & Gradients) -> Ẩn hoàn toàn */
 .kflHPd1wGLg8GjJjmpc6,
 .goKxWei7aIJdA857U744,
@@ -111,7 +118,15 @@ html,
 .EPbGVi8nqTUQDXtK5I1p,
 [class*="EPbGVi"],
 .wZUygRfNStcwxAbR8qfL,
-[class*="wZUyg"] {
+[class*="wZUyg"],
+/* Xóa lớp phủ màu trích xuất động và gradient ở trang nghệ sĩ (Artist page) */
+[data-testid="overscroll-background"],
+.AJjP1RzhySWiLWVcLlNA,
+[class*="AJjP1"],
+.xWAGb7rkhYb1eQ8LiDaB,
+[class*="xWAGb"],
+.before-scroll-node *::before,
+.before-scroll-node *::after {
     display: none !important;
     opacity: 0 !important;
     background: transparent !important;
@@ -119,6 +134,11 @@ html,
 }
 
 /* Các container chứa nội dung -> Trong suốt không che hình nền */
+.before-scroll-node,
+.before-scroll-node > div,
+[data-testid="artist-page"],
+[data-testid="artist-page"] > div,
+[data-testid="entity-header"],
 .UbzV6GmaFXRSbQNfaAZL,
 .UbzV6GmaFXRSbQNfaAZL.gmb9NAvXgkg8XFMlNTNR.PlM17FTnYyoT8BzLzLfF,
 .main-trackList-trackListHeader,
@@ -131,6 +151,19 @@ section[data-testid="entity-page"] {
     background: transparent !important;
     box-shadow: none !important;
     border: none !important;
+}
+
+/* Giữ lại ảnh bìa nghệ sĩ, mượt mà mờ dần khi cuộn trang */
+.before-scroll-node [data-testid="background-image"],
+.before-scroll-node [class*="KRY4R"] {
+    display: block !important;
+    background-color: transparent !important;
+    animation-name: weArtistBannerFadeOnScroll !important;
+    animation-duration: 1s !important;
+    animation-timing-function: linear !important;
+    animation-play-state: paused !important;
+    animation-delay: calc(var(--scroll) * -1s) !important;
+    animation-fill-mode: both !important;
 }
 
 /* Thẻ Shortcut gần đây trên trang chủ (6 ô vuông gần đây) */
