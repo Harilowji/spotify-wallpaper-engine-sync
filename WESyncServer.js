@@ -772,6 +772,16 @@ const server = http.createServer(async (req, res) => {
             const stat = fs.statSync(cachedWebm);
             const range = req.headers.range;
 
+            if (req.method === "HEAD") {
+                res.writeHead(200, {
+                    "Content-Length": stat.size,
+                    "Content-Type": "video/webm",
+                    "Accept-Ranges": "bytes"
+                });
+                res.end();
+                return;
+            }
+
             if (range) {
                 const parts = range.replace(/bytes=/, "").split("-");
                 const start = parseInt(parts[0], 10);
@@ -788,7 +798,8 @@ const server = http.createServer(async (req, res) => {
             } else {
                 res.writeHead(200, {
                     "Content-Length": stat.size,
-                    "Content-Type": "video/webm"
+                    "Content-Type": "video/webm",
+                    "Accept-Ranges": "bytes"
                 });
                 fs.createReadStream(cachedWebm).pipe(res);
             }

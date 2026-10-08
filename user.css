@@ -32,12 +32,15 @@ body,
 html,
 #main,
 .Root,
+.Root > div,
+.Root > div > div,
 .Root__top-container,
 .Root__nav-block,
 .Root__main-view,
 .Root__now-playing-bar,
 .Root__right-sidebar,
 .under-main-view,
+#main-view,
 .main-view-container,
 .main-view-container__scroll-node,
 .main-view-container__scroll-node-child,
@@ -46,7 +49,16 @@ html,
 .os-viewport,
 .os-content,
 #Desktop_LeftSidebar_Id,
-.WWTxshVPO07BZLrdUL3h {
+.WWTxshVPO07BZLrdUL3h,
+[class*="bokji"],
+.bokji1jrN2MBe7RA0384,
+.L5dM7nzQpMJtRkvZZBZL,
+[class*="kqeAX"],
+.kqeAXHJzFfJ_27frg58J,
+[class*="tDwxp"],
+.tDwxpCRHu3TEG0d_5KfE,
+[class*="wS8WR"],
+.wS8WRtgpp8hCpDALPMTR {
     background-color: transparent !important;
     background: transparent !important;
     background-image: none !important;
@@ -75,10 +87,35 @@ html,
 .main-home-homeHeader,
 .main-topBar-background,
 .main-topBar-overlay,
-.main-view-container__scroll-node-child-blinder {
+.main-view-container__scroll-node-child-blinder,
+.V7ICuEr1ZBtemPGKXeZb,
+.a7UoWEK9rJQn8d_UPcnk,
+.oCSWtOAH_CgjIsi_H_PS,
+.Ac2raqVCOQ_HYbbCkBAP,
+.tKaJ5awSBwDlHmRqmrzy,
+.bKeLEamA2GUDUCyJn4Pr,
+.uCbWUZK48MWVSaUEQhQ0,
+.CR4LyX0RXKO7Xd8ixdOa,
+.oRu_0tmKCe8UkolB9TSg,
+[class*="V7ICu"],
+[class*="oCSWt"],
+[class*="Ac2raq"],
+[class*="bKeLE"],
+[class*="uCbWU"],
+._ddPhxHdxmpT13IbjTmr,
+[class*="_ddPhx"],
+.rGEcrRDg48wzjhmWpRRi,
+[class*="rGEcr"],
+.DQdyZLsEcy2FX58iLIu7,
+[class*="DQdyZ"],
+.EPbGVi8nqTUQDXtK5I1p,
+[class*="EPbGVi"],
+.wZUygRfNStcwxAbR8qfL,
+[class*="wZUyg"] {
     display: none !important;
     opacity: 0 !important;
     background: transparent !important;
+    background-image: none !important;
 }
 
 /* Các container chứa nội dung -> Trong suốt không che hình nền */
@@ -97,14 +134,16 @@ section[data-testid="entity-page"] {
 }
 
 /* Thẻ Shortcut gần đây trên trang chủ (6 ô vuông gần đây) */
-.x0Tk9K1tu0sFwdD5iNF5 {
+.x0Tk9K1tu0sFwdD5iNF5,
+.ldcHu1zP_xmHBUFZFfeE {
     background-color: rgba(255, 255, 255, 0.07) !important;
     border: 1px solid rgba(255, 255, 255, 0.08) !important;
     border-radius: 6px !important;
     transition: background-color 0.2s ease, transform 0.15s ease !important;
 }
 
-.x0Tk9K1tu0sFwdD5iNF5:hover {
+.x0Tk9K1tu0sFwdD5iNF5:hover,
+.ldcHu1zP_xmHBUFZFfeE:hover {
     background-color: rgba(255, 255, 255, 0.15) !important;
     transform: translateY(-1px);
 }
@@ -137,7 +176,13 @@ section[data-testid="entity-page"] {
 .main-nowPlayingView-section,
 .main-nowPlayingView-aboutArtistV2,
 .main-nowPlayingView-content,
-.main-buddyFeed-container {
+.main-buddyFeed-container,
+.U6DZDQSNLMHSjnws7ZV1,
+.NsM_Z8RS1UDNffwrtu98,
+.tXGFYqRGWW13ldePz89Q,
+.jfXGHGTAx7Qc8JuCJ4K0,
+.tjf0yo8EHbbCQwMm3mkF,
+[class*="NowPlayingView"] {
     background-color: transparent !important;
     background: transparent !important;
     backdrop-filter: none !important;

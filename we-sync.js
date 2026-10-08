@@ -142,6 +142,8 @@
             mediaEl.autoplay = true;
             mediaEl.loop = true;
             mediaEl.muted = true;
+            mediaEl.setAttribute("muted", "");
+            mediaEl.setAttribute("playsinline", "");
             mediaEl.playsInline = true;
             mediaEl.style.position = "fixed";
             mediaEl.style.top = "0";
@@ -161,11 +163,28 @@
                 currentBg = "";
                 isTranscoding = false;
             });
-            mediaEl.addEventListener("playing", function() {
+
+            const onPlayingSuccess = function() {
                 isTranscoding = false;
                 debugText.innerText = "✅ Đã đồng bộ với hình nền!";
-                setTimeout(() => { debugText.style.opacity = "0"; }, 2500);
-            });
+                setTimeout(() => {
+                    if (debugText.innerText.includes("Đã đồng bộ")) {
+                        debugText.style.opacity = "0";
+                    }
+                }, 2500);
+            };
+
+            mediaEl.addEventListener("playing", onPlayingSuccess);
+
+            mediaEl.addEventListener("canplay", function() {
+                isTranscoding = false;
+                mediaEl.play().then(onPlayingSuccess).catch(function(err) {
+                    if (err.name !== "AbortError") {
+                        debugText.style.opacity = "1";
+                        debugText.innerText = "⚠️ Trình duyệt chặn tự động phát (" + err.message + ")";
+                    }
+                });
+            }, { once: true });
 
             debugText.style.opacity = "1";
             debugText.innerText = "⏳ Đang tối ưu chuyển mã video hình nền...";
@@ -174,17 +193,22 @@
             mediaEl.src = "http://127.0.0.1:8989/media?t=" + Date.now();
             document.body.prepend(mediaEl);
             ensureOverlay();
-            mediaEl.load();
-            mediaEl.play().catch(function(err) {
-                debugText.style.opacity = "1";
-                debugText.innerText = "⚠️ Trình duyệt chặn tự động phát (" + err.message + ")";
-                isTranscoding = false;
-                currentBg = "";
+
+            mediaEl.play().then(onPlayingSuccess).catch(function(err) {
+                if (err.name !== "AbortError") {
+                    console.log("Play pending canplay event:", err.message);
+                }
             });
         }
     }
 
-    // Cơ chế Smart Pause: Tự động tạm dừng video khi cửa sổ Spotify bị ẩn hoặc thu nhỏ
+    // Cơ chế Smart Pause & Đảm bảo luôn phát mượt mà khi cửa sổ hiển thị
+    function ensureVideoPlaying() {
+        if (mediaEl && mediaEl.tagName === "VIDEO" && mediaEl.paused && !document.hidden) {
+            mediaEl.play().catch(function() {});
+        }
+    }
+
     document.addEventListener("visibilitychange", function() {
         if (mediaEl && mediaEl.tagName === "VIDEO") {
             if (document.hidden) {
@@ -197,6 +221,10 @@
             checkBg();
         }
     });
+
+    window.addEventListener("focus", ensureVideoPlaying);
+    document.addEventListener("click", ensureVideoPlaying);
+    setInterval(ensureVideoPlaying, 3000);
 
     async function checkBg() {
         try {
@@ -276,6 +304,18 @@
     // =========================================================================
     function initSpotifyLayoutBridge() {
         function patchBar() {
+            // Đảm bảo không bị các container trung gian của Spotify v1.3.4+ phủ nền đen
+            const root = document.querySelector('.Root');
+            if (root) {
+                const darkWrappers = root.querySelectorAll('.bokji1jrN2MBe7RA0384, .L5dM7nzQpMJtRkvZZBZL, [class*="bokji"]');
+                darkWrappers.forEach(el => {
+                    if (el.style.backgroundColor !== 'transparent') {
+                        el.style.setProperty('background', 'transparent', 'important');
+                        el.style.setProperty('background-color', 'transparent', 'important');
+                    }
+                });
+            }
+
             const bar = document.querySelector('[data-testid="now-playing-bar"]');
             if (!bar) return;
 
