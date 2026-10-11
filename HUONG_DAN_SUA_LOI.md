@@ -12,7 +12,10 @@ Nếu bạn gặp phải bất kỳ vấn đề nào trong quá trình cài đ�
 * **Cách khắc phục:**
   1. Mở Windows **Settings > Apps > Installed apps**, tìm Spotify có biểu tượng Microsoft Store và chọn **Uninstall**.
   2. Truy cập [trang tải chính thức của Spotify](https://www.spotify.com/download/windows/) để tải về bản cài đặt truyền thống (**Desktop Standalone**).
-  3. Cài đặt Spotify xong, nhấp đúp chạy lại `install.bat`.
+  3. Cài đặt Spotify xong, nhấp đúp chạy lại `install.bat` hoặc dán lệnh PowerShell tự động:
+     ```powershell
+     iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-sync/main/setup.ps1 | iex
+     ```
 
 ---
 
@@ -36,7 +39,19 @@ Nếu bạn gặp phải bất kỳ vấn đề nào trong quá trình cài đ�
 
 ---
 
-### ❓ Tình huống 4: Đổi hình nền máy tính thấy hơi chậm một chút? Ổ cứng có bị đầy không?
+### ⚠️ Tình huống 4: Popup cảnh báo "The Spotify application is not responding"
+* **Nguyên nhân chính:**
+  * Có tiến trình Spotify cũ bị kẹt trong nền (background orphan process) hoặc do cơ chế kiểm tra đơn phiên bản (Single-instance IPC) của Spotify bị nghẽn tín hiệu chuyển tiếp cửa sổ.
+* **Cách khắc phục:**
+  1. Mở Command Prompt hoặc PowerShell gõ lệnh:
+     ```cmd
+     taskkill /f /im spotify.exe
+     ```
+  2. Khởi động lại Spotify từ biểu tượng trên màn hình Desktop hoặc thanh Taskbar.
+
+---
+
+### ❓ Tình huống 5: Đổi hình nền máy tính thấy hơi chậm một chút? Ổ cứng có bị đầy không?
 * **Giải thích hoạt động:**
   1. **Chuyển mã tối ưu (Transcoding):** Khi bạn chuyển sang một hình nền video độ phân giải cao (2K, 4K) lần đầu tiên, FFmpeg sẽ chuyển mã sang định dạng `WebM VP8` tối ưu cho Spotify trong khoảng 5–10 giây. Thao tác này tiêu tốn CPU tạm thời nên máy có thể hơi giật nhẹ vài giây là hoàn toàn bình thường.
   2. **Bộ nhớ đệm (Cache):** Sau khi chuyển mã xong, video được lưu vào bộ nhớ tạm. Những lần sau chuyển lại hình nền đó sẽ hiển thị tức thì 0 giây.
@@ -44,18 +59,18 @@ Nếu bạn gặp phải bất kỳ vấn đề nào trong quá trình cài đ�
 
 ---
 
-### 🌟 Tình huống 5: Hình nền Wallpaper Engine là dạng Scene (.pkg / Web) thì sao?
-* **Bản nâng cấp độc quyền v2.0 của Harilowji:**
-  * Ở phiên bản gốc của Trung Quốc, khi gặp file `.pkg` hệ thống sẽ báo lỗi `Unsupported format`.
-  * Trong phiên bản v2.0 này, hệ thống đã được tích hợp bộ phân giải thông minh (**Smart Scene Resolver**): Tự động trích xuất ảnh bìa chất lượng cao (`preview.jpg`, `preview.gif`, `preview.png`) của hình nền từ Steam Workshop để làm nền tĩnh / động cho Spotify cực kỳ đẹp mắt, không còn bất kỳ lỗi nào!
+### 🌟 Tình huống 6: Hình nền Wallpaper Engine là dạng Scene (.pkg / Web) thì sao?
+* **Bản nâng cấp độc quyền v2.5 của Harilowji:**
+  * Ở phiên bản gốc, khi gặp file `.pkg` hệ thống sẽ báo lỗi `Unsupported format`.
+  * Trong phiên bản này, hệ thống đã được tích hợp bộ phân giải thông minh (**Smart Scene Resolver**): Tự động trích xuất ảnh bìa chất lượng cao (`preview.jpg`, `preview.gif`, `preview.png`) của hình nền từ Steam Workshop để làm nền tĩnh / động cho Spotify cực kỳ đẹp mắt, không còn bất kỳ lỗi nào!
 
 ---
 
-### 🔄 Tình huống 6: Spotify vừa cập nhật phiên bản mới làm mất nền
+### 🔄 Tình huống 7: Spotify vừa cập nhật phiên bản mới làm mất nền
 * **Nguyên nhân:**
-  * Spotify tự động cập nhật phiên bản mới (như v1.3.3) và ghi đè gói `xpui.spa` gốc, làm mất mã can thiệp của Spicetify.
+  * Spotify tự động cập nhật phiên bản mới (như v1.3.4) và ghi đè gói `xpui.spa` gốc, làm mất mã can thiệp của Spicetify.
 * **Cách khắc phục:**
-  * **Cách 1 (Nhanh nhất & Đơn giản nhất):** Nhấp đúp chuột chạy lại file `install.bat`. Trình cài đặt đã được nâng cấp cơ chế tự nhận diện phiên bản mới, tự dọn dẹp backup cũ và nạp lại toàn bộ mod chỉ trong 5 giây!
+  * **Cách 1 (Nhanh nhất & Đơn giản nhất):** Nhấp đúp chuột chạy lại file `check_update.bat` hoặc `install.bat`. Trình cài đặt đã được nâng cấp cơ chế tự nhận diện phiên bản mới, tự dọn dẹp backup cũ và nạp lại toàn bộ mod chỉ trong 5 giây!
   * **Cách 2 (Bằng dòng lệnh Terminal):** Mở PowerShell hoặc Command Prompt gõ lần lượt:
     ```bash
     spicetify restore
