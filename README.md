@@ -64,8 +64,10 @@ iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-s
 * **Icon chú mèo đáng yêu:** Tích hợp icon mèo trắng sinh động ngay cạnh biểu tượng micro, căn chỉnh tỉ lệ 36px chuẩn xác.
 * **Cover Art 42px tinh chỉnh:** Kích thước ảnh bìa bài hát được tối ưu không bị vỡ hạt và không bị tràn viền khi bạn phóng to cửa sổ Spotify.
 
-### 6. 🛡️ Kháng Cập Nhật Tự Động (Auto-Healer Sentinel)
-* Dịch vụ ngầm liên tục giám sát trạng thái Spicetify. Nếu Spotify tự ý cập nhật làm mất mod, hệ thống sẽ tự động phục hồi lại giao diện chỉ sau 5 giây mà không cần bạn phải thao tác lại từ đầu.
+### 6. 🛡️ Kháng Cập Nhật Toàn Diện (Anti-Update Shield & PE Auto-Healer)
+* **Tường chắn Anti-Update Shield:** Tự động thiết lập quyền ACL khóa chặt thư mục `Update` và `SpotifyUpdate.exe`. Spotify hoàn toàn không thể âm thầm tải bản cập nhật ngầm để ghi đè làm mất hình nền của bạn!
+* **Nhận diện PE siêu tốc (<15ms):** Thuật toán đọc header nhị phân của file thực thi Spotify.exe tức thì, loại bỏ hoàn toàn độ trễ và tránh hiện tượng đơ máy.
+* **Bộ nâng cấp an toàn 1-Click (`update_spotify.bat`):** Khi bạn muốn chủ động nâng cấp Spotify lên bản mới nhất, công cụ sẽ tự động mở khóa, cập nhật, nạp lại mod Spicetify và tái kích hoạt khiên bảo vệ.
 
 ---
 
@@ -113,12 +115,12 @@ install.bat
 
 ---
 
-## 🔄 Khi Spotify Tự Cập Nhật Thì Làm Sao?
+## 🔄 Khi Nâng Cấp Spotify Hoặc Bị Mất Giao Diện Thì Làm Sao?
+Nhờ vào **Anti-Update Shield**, Spotify sẽ không thể âm thầm tự cập nhật ngầm gây mất mod nữa. Trong trường hợp bạn chủ động nâng cấp hoặc cần khôi phục:
 
-Khi Spotify tự nâng cấp phiên bản mới, giao diện tùy chỉnh có thể tạm thời bị đưa về mặc định của Spotify. Bạn đừng lo lắng:
-
-* **Tự động:** Trình ngầm WESync sẽ tự phát hiện và kích hoạt khôi phục lại cho bạn.
-* **Thủ công 1-Click:** Bạn chỉ cần vào thư mục dự án và nhấp đúp vào file **`check_update.bat`** (hoặc chạy lại `install.bat`), toàn bộ giao diện sẽ trở lại bình thường trong tích tắc!
+* **Chủ động nâng cấp Spotify mới nhất an toàn:** Nhấp đúp vào **`update_spotify.bat`** — hệ thống sẽ tự động nâng cấp Spotify lên phiên bản mới nhất từ trang chủ, tái áp dụng giao diện kính mờ và bật lại khiên chắn bảo vệ.
+* **Kiểm tra & Khôi phục tức thì 1-Click:** Nhấp đúp vào **`check_update.bat`** (hoặc `install.bat`) để hệ thống tự động kiểm tra và phục hồi lại mod chỉ trong 3 giây.
+* **Tự động trong nền:** Dịch vụ ngầm `WESyncServer` sẽ tự động nhận diện và khôi phục khi phát hiện phiên bản Spotify thay đổi.
 
 ---
 

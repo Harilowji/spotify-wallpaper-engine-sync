@@ -51,6 +51,11 @@ if %ERRORLEVEL% EQU 0 (
     echo [THÔNG TIN] Không tìm thấy lệnh Spicetify trong PATH, bỏ qua bước áp dụng.
 )
 
+:: Mở lại quyền cập nhật Spotify gốc nếu cần
+icacls "%LOCALAPPDATA%\Spotify\Update" /grant "%username%":(OI)(CI)F >nul 2>nul
+icacls "%LOCALAPPDATA%\Spotify\SpotifyUpdate.exe" /grant "%username%":F >nul 2>nul
+del /f /q "%LOCALAPPDATA%\Spotify\SpotifyUpdate.exe" 2>nul
+
 echo.
 echo ======================================================================
 echo   ✅ ĐÃ GỠ CÀI ĐẶT THÀNH CÔNG!

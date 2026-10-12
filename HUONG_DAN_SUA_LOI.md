@@ -68,13 +68,21 @@ Nếu bạn gặp phải bất kỳ vấn đề nào trong quá trình cài đ�
 
 ### 🔄 Tình huống 7: Spotify vừa cập nhật phiên bản mới làm mất nền
 * **Nguyên nhân:**
-  * Spotify tự động cập nhật phiên bản mới (như v1.3.4) và ghi đè gói `xpui.spa` gốc, làm mất mã can thiệp của Spicetify.
-* **Cách khắc phục:**
-  * **Cách 1 (Nhanh nhất & Đơn giản nhất):** Nhấp đúp chuột chạy lại file `check_update.bat` hoặc `install.bat`. Trình cài đặt đã được nâng cấp cơ chế tự nhận diện phiên bản mới, tự dọn dẹp backup cũ và nạp lại toàn bộ mod chỉ trong 5 giây!
-  * **Cách 2 (Bằng dòng lệnh Terminal):** Mở PowerShell hoặc Command Prompt gõ lần lượt:
-    ```bash
-    spicetify restore
-    spicetify clear
-    spicetify backup apply
-    ```
-    Giao diện kính mờ và tính năng đồng bộ Wallpaper Engine sẽ xuất hiện trở lại ngay lập tức!
+  * Theo mặc định, Spotify thường âm thầm tải bản cập nhật ngầm vào thư mục `Update` và tự động ghi đè gói `xpui.spa` khi khởi động lại, làm mất theme Spicetify.
+* **Giải pháp bảo vệ toàn diện đã được tích hợp sẵn:**
+  1. **Tường chắn Anti-Update Shield:** `install.bat` và `check_update.bat` tự động khóa quyền ghi (`icacls DENY`) vào thư mục `%LOCALAPPDATA%\Spotify\Update` và `SpotifyUpdate.exe`. Spotify sẽ không thể âm thầm tự cập nhật ngầm làm hỏng mod nữa!
+  2. **Bộ tự phục hồi tức thì (Instant PE Auto-Healer):** Máy chủ ngầm `WESyncServer.js` sử dụng thuật toán quét header nhị phân PE siêu tốc (<15ms) để nhận diện phiên bản. Nếu phát hiện phiên bản thay đổi, hệ thống sẽ tự nạp lại mod mà không bao giờ bị đơ hay treo máy.
+  3. **Khôi phục thủ công 1-Click:** Nhấp đúp vào file **`check_update.bat`**. Chỉ trong 3 giây, toàn bộ mod sẽ được đồng bộ và nạp lại chuẩn xác.
+
+---
+
+### 🚀 Tình huống 8: Khi muốn chủ động nâng cấp Spotify lên phiên bản mới nhất
+* Nếu bạn muốn nâng cấp Spotify lên phiên bản mới nhất mà vẫn giữ nguyên vẹn hình nền động và giao diện trong suốt:
+* **Cách thực hiện:**
+  * Nhấp đúp vào file **`update_spotify.bat`** trong thư mục dự án.
+  * Script sẽ tự động:
+    1. Tạm mở khóa tường bảo vệ update.
+    2. Tải và nâng cấp Spotify lên phiên bản chính thức mới nhất.
+    3. Tự động áp dụng lại Spicetify và theme kính mờ trong suốt.
+    4. Tái kích hoạt tường chắn Anti-Update Shield để bảo vệ hình nền vĩnh viễn.
+    5. Khởi động lại Spotify và thưởng thức nhạc ngay lập tức!

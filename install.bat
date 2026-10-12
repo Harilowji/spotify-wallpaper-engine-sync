@@ -148,9 +148,11 @@ echo [2/4] Đang cài đặt Spicetify Extension...
 if not exist "%APPDATA%\spicetify\Extensions" mkdir "%APPDATA%\spicetify\Extensions"
 copy /y "%~dp0we-sync.js" "%APPDATA%\spicetify\Extensions\we-sync.js" >nul
 
-:: Chặn Spotify Auto-Update tự ý ghi đè làm mất giao diện Spicetify
+:: Chặn triệt để Spotify Auto-Update tự ý ghi đè làm mất giao diện Spicetify
 mkdir "%LOCALAPPDATA%\Spotify\Update" 2>nul
-icacls "%LOCALAPPDATA%\Spotify\Update" /deny "%username%":W >nul 2>nul
+icacls "%LOCALAPPDATA%\Spotify\Update" /deny "%username%":(OI)(CI)(W,D) >nul 2>nul
+echo. > "%LOCALAPPDATA%\Spotify\SpotifyUpdate.exe" 2>nul
+icacls "%LOCALAPPDATA%\Spotify\SpotifyUpdate.exe" /deny "%username%":(W,D) >nul 2>nul
 
 :: ==========================================
 :: Bước 3: Cài đặt Giao diện Kính mờ Spicetify

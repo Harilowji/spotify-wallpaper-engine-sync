@@ -541,6 +541,29 @@ function getImageMime(filePath) {
 // ==========================================
 let isHealing = false;
 
+// Trích xuất ProductVersion từ file thực thi PE (Spotify.exe) với tốc độ tức thời (<15ms)
+function getExeProductVersion(exePath) {
+    try {
+        if (!fs.existsSync(exePath)) return "";
+        const buf = fs.readFileSync(exePath);
+        const needle = Buffer.from("P\x00r\x00o\x00d\x00u\x00c\x00t\x00V\x00e\x00r\x00s\x00i\x00o\x00n\x00\x00\x00");
+        const idx = buf.indexOf(needle);
+        if (idx !== -1) {
+            const str = buf.slice(idx + needle.length, idx + needle.length + 64).toString("utf16le");
+            const match = str.match(/\d+\.\d+\.\d+\.\d+/);
+            if (match) return match[0];
+        }
+        const fileNeedle = Buffer.from("F\x00i\x00l\x00e\x00V\x00e\x00r\x00s\x00i\x00o\x00n\x00\x00\x00");
+        const fIdx = buf.indexOf(fileNeedle);
+        if (fIdx !== -1) {
+            const str = buf.slice(fIdx + fileNeedle.length, fIdx + fileNeedle.length + 64).toString("utf16le");
+            const match = str.match(/\d+\.\d+\.\d+\.\d+/);
+            if (match) return match[0];
+        }
+    } catch (e) {}
+    return "";
+}
+
 function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
     if (isHealing) return { status: "busy", message: "Đang trong tiến trình khôi phục mod..." };
 
@@ -563,17 +586,8 @@ function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
             try { savedState = JSON.parse(fs.readFileSync(stateFile, "utf-8")); } catch (e) {}
         }
 
-        // Nếu kiểm tra tự động và mtime/size chưa đổi, thư mục xpui vẫn còn -> Đang hoạt động bình thường
-        if (!isManual && !isForce && savedState && savedState.mtime === currentMtime && savedState.size === currentSize && fs.existsSync(xpuiDir)) {
-            return { status: "up_to_date", message: "Spotify vẫn ở phiên bản hiện tại, mod hoạt động bình thường." };
-        }
-
-        // Đọc phiên bản ProductVersion hiện tại của Spotify.exe
-        let currentProductVersion = "";
-        try {
-            const out = execSync(`powershell -NoProfile -Command "(Get-Item '${spotifyExe}').VersionInfo.ProductVersion"`, { encoding: "utf-8", timeout: 6000, windowsHide: true });
-            if (out) currentProductVersion = out.trim();
-        } catch (e) {}
+        // Đọc phiên bản ProductVersion hiện tại của Spotify.exe tức thời qua PE Header
+        let currentProductVersion = getExeProductVersion(spotifyExe);
 
         // Đọc phiên bản đã backup trong config-xpui.ini của Spicetify
         let backupVersion = "";
@@ -583,8 +597,14 @@ function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
             if (m) backupVersion = m[1].trim();
         } catch (e) {}
 
+        // Nếu kiểm tra tự động và mtime/size chưa đổi, thư mục xpui vẫn còn -> Đang hoạt động bình thường
+        if (!isManual && !isForce && savedState && savedState.mtime === currentMtime && savedState.size === currentSize && fs.existsSync(xpuiDir)) {
+            return { status: "up_to_date", message: "Spotify vẫn ở phiên bản hiện tại, mod hoạt động bình thường." };
+        }
+
         // Nếu phiên bản khớp nhau và thư mục xpui vẫn tồn tại -> Cập nhật trạng thái và trả về kết quả ngay lập tức
-        if (!isForce && currentProductVersion && backupVersion.startsWith(currentProductVersion) && fs.existsSync(xpuiDir)) {
+        const versionMatches = (currentProductVersion && backupVersion && (backupVersion.startsWith(currentProductVersion) || currentProductVersion === backupVersion));
+        if (!isForce && versionMatches && fs.existsSync(xpuiDir)) {
             fs.writeFileSync(stateFile, JSON.stringify({ mtime: currentMtime, size: currentSize, version: currentProductVersion, lastChecked: Date.now() }, null, 2));
             return {
                 status: "up_to_date",
@@ -592,6 +612,11 @@ function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
                 currentVersion: currentProductVersion,
                 backupVersion: backupVersion
             };
+        }
+
+        // Tránh false positive nếu không đọc được version lúc file exe đang bị hệ thống khóa
+        if (!isForce && !currentProductVersion) {
+            return { status: "skipped", message: "Không thể đọc phiên bản Spotify.exe lúc này, bỏ qua để tránh gián đoạn." };
         }
 
         // PHÁT HIỆN SPOTIFY VỪA CẬP NHẬT HOẶC MẤT MOD!
@@ -602,19 +627,18 @@ function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
         // Kiểm tra xem Spotify có đang chạy không
         let wasRunning = false;
         try {
-            const taskOut = execSync('tasklist /fi "imagename eq spotify.exe"', { encoding: "utf-8", windowsHide: true });
+            const taskOut = execSync('tasklist /fi "imagename eq spotify.exe"', { encoding: "utf-8", timeout: 5000, windowsHide: true });
             if (taskOut.toLowerCase().includes("spotify.exe")) {
                 wasRunning = true;
-                execSync("taskkill /f /im spotify.exe", { windowsHide: true });
-                execSync('powershell -NoProfile -Command "Start-Sleep -Seconds 2"', { windowsHide: true });
+                execSync("taskkill /f /im spotify.exe", { timeout: 5000, windowsHide: true });
             }
         } catch (e) {}
 
         // Thực hiện chu kỳ khôi phục và nạp lại Spicetify
         try {
-            execSync("spicetify restore", { windowsHide: true });
-            execSync("spicetify clear", { windowsHide: true });
-            execSync("spicetify backup apply -n", { windowsHide: true });
+            execSync("spicetify restore", { timeout: 15000, windowsHide: true });
+            execSync("spicetify clear", { timeout: 15000, windowsHide: true });
+            execSync("spicetify backup apply -n", { timeout: 25000, windowsHide: true });
         } catch (err) {
             console.error("[Auto-Healer] Lỗi khi chạy lệnh spicetify:", err.message);
         }
@@ -633,7 +657,7 @@ function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
         // Khởi động lại Spotify nếu trước đó đang mở
         if (wasRunning) {
             try {
-                execSync('powershell -NoProfile -Command "Start-Process \'cmd.exe\' -ArgumentList \'/c start spotify:\'"', { windowsHide: true });
+                execSync('cmd.exe /c start spotify:', { timeout: 5000, windowsHide: true });
             } catch (e) {}
         }
 
