@@ -699,6 +699,21 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // Endpoint: /catjam.webm - Phục vụ video chú mèo Cat Jam offline chất lượng cao với header chuẩn video/webm
+    if (req.url.startsWith("/catjam.webm")) {
+        const catPath = path.join(__dirname, "catjam.webm");
+        if (fs.existsSync(catPath)) {
+            const stat = fs.statSync(catPath);
+            res.writeHead(200, {
+                "Content-Type": "video/webm",
+                "Content-Length": stat.size,
+                "Cache-Control": "public, max-age=31536000"
+            });
+            fs.createReadStream(catPath).pipe(res);
+            return;
+        }
+    }
+
     // Endpoint: /path - Trả về đường dẫn hình nền hiện tại
     if (req.url.startsWith("/path")) {
         let wp = "";

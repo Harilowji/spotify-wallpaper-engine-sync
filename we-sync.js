@@ -354,10 +354,8 @@
                 allCats[0].classList.remove('main-nowPlayingBar-extraControls');
             }
 
-            // Đảm bảo chú mèo Cat-Jam luôn được gắn vào thanh bên phải nếu extension cat-jam đang hoạt động
-            const isCatjamEnabled = localStorage.getItem('catjam-settings.catjam-webm-position') !== null ||
-                                    document.querySelector('script[src*="cat-jam"]') !== null;
-            if (isCatjamEnabled && right && !document.getElementById('catjam-webm')) {
+            // Đảm bảo chú mèo nhảy nhảy (Cat Jam) luôn được gắn vào thanh điều khiển nhạc
+            if (right && !document.getElementById('catjam-webm')) {
                 try {
                     const cat = document.createElement('video');
                     cat.id = 'catjam-webm';
@@ -365,12 +363,18 @@
                     cat.setAttribute('autoplay', 'true');
                     cat.setAttribute('muted', 'true');
                     cat.setAttribute('style', 'width: 36px; height: 36px;');
-                    let catSrc = 'https://github.com/BlafKing/spicetify-cat-jam-synced/raw/main/src/resources/catjam.webm';
+                    let catSrc = 'http://127.0.0.1:8989/catjam.webm';
                     try {
                         const storedLink = JSON.parse(localStorage.getItem('catjam-settings.catjam-webm-link') || '{}')?.value;
                         if (storedLink) catSrc = storedLink;
                     } catch(e) {}
                     cat.src = catSrc;
+                    cat.onerror = () => {
+                        // Fallback sang CDN jsdelivr nếu server local chưa kịp khởi động
+                        if (cat.src !== 'https://cdn.jsdelivr.net/gh/BlafKing/spicetify-cat-jam-synced@main/src/resources/catjam.webm') {
+                            cat.src = 'https://cdn.jsdelivr.net/gh/BlafKing/spicetify-cat-jam-synced@main/src/resources/catjam.webm';
+                        }
+                    };
                     if (right.firstChild && right.firstChild !== cat) {
                         right.insertBefore(cat, right.firstChild);
                     } else if (!right.contains(cat)) {
