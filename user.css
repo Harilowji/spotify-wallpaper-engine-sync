@@ -448,6 +448,61 @@ button[data-testid="cover-art-button"],
     overflow: hidden !important;
 }
 
+/* Phục hồi hiển thị tên bài hát & nghệ sĩ trên Now Playing Bar (xóa mask gradient làm tàng hình chữ) */
+.main-trackInfo-overlay,
+.main-trackInfo-contentContainer,
+.main-trackInfo-container,
+.main-trackInfo-name,
+.main-trackInfo-artists,
+[class*="trackInfo"] {
+    -webkit-mask-image: none !important;
+    mask-image: none !important;
+    overflow: visible !important;
+}
+
+.main-trackInfo-name a,
+.main-trackInfo-name span {
+    color: #FFFFFF !important;
+    font-weight: 700 !important;
+    display: inline-block !important;
+}
+
+.main-trackInfo-artists a,
+.main-trackInfo-artists span {
+    color: #B3B3B3 !important;
+    display: inline-block !important;
+}
+
+/* Phục hồi icon tam giác phát nhạc / tạm dừng (Play / Pause) màu đen sắc nét */
+.main-playButton-PlayButton svg,
+[data-testid="play-button"] svg,
+[data-testid="control-button-playpause"] svg,
+.player-controls__buttons button:nth-child(3) svg,
+.encore-bright-accent-set svg,
+.encore-inverted-light-set svg,
+[data-encore-id="buttonPrimary"] svg {
+    fill: #000000 !important;
+    color: #000000 !important;
+}
+
+.main-playButton-PlayButton svg path,
+[data-testid="play-button"] svg path,
+[data-testid="control-button-playpause"] svg path,
+.player-controls__buttons button:nth-child(3) svg path,
+.encore-bright-accent-set svg path,
+.encore-inverted-light-set svg path,
+[data-encore-id="buttonPrimary"] svg path {
+    fill: #000000 !important;
+}
+
+/* Icon Play khi di chuột lên từng dòng bài hát trong danh sách album/playlist */
+.main-trackList-rowPlayPauseButton,
+.main-trackList-rowPlayPauseButton svg,
+.main-trackList-rowPlayPauseButton svg path {
+    fill: #FFFFFF !important;
+    color: #FFFFFF !important;
+}
+
 /* Nút điều khiển âm nhạc */
 .player-controls__buttons button,
 .main-nowPlayingBar-extraControls button {
