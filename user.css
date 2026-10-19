@@ -74,7 +74,7 @@ html,
     100% { opacity: 0; }
 }
 
-/* Các lớp nền thuần túy (Background layers & Gradients) -> Ẩn hoàn toàn */
+/* Các lớp nền thuần túy (Background layers & Gradients) -> Trong suốt hoàn toàn */
 .kflHPd1wGLg8GjJjmpc6,
 .goKxWei7aIJdA857U744,
 .goKxWei7aIJdA857U744:after,
@@ -99,7 +99,9 @@ html,
 .a7UoWEK9rJQn8d_UPcnk,
 .oCSWtOAH_CgjIsi_H_PS,
 .Ac2raqVCOQ_HYbbCkBAP,
+.Ac2raqVCOQ_HYbbCkBAP:after,
 .tKaJ5awSBwDlHmRqmrzy,
+.tKaJ5awSBwDlHmRqmrzy:after,
 .bKeLEamA2GUDUCyJn4Pr,
 .uCbWUZK48MWVSaUEQhQ0,
 .CR4LyX0RXKO7Xd8ixdOa,
@@ -124,10 +126,24 @@ html,
 .AJjP1RzhySWiLWVcLlNA,
 [class*="AJjP1"],
 .xWAGb7rkhYb1eQ8LiDaB,
-[class*="xWAGb"],
-.before-scroll-node *::before,
-.before-scroll-node *::after {
-    display: none !important;
+[class*="xWAGb"] {
+    background: transparent !important;
+    background-color: transparent !important;
+    background-image: none !important;
+    box-shadow: none !important;
+    border: none !important;
+}
+
+/* Các lớp phủ gradient mờ -> Ẩn độ mờ (opacity 0) an toàn không gây lỗi cấu trúc React */
+.main-entityHeader-overlay,
+.main-topBar-overlay,
+.main-view-container__scroll-node-child-blinder,
+[data-testid="overscroll-background"],
+.goKxWei7aIJdA857U744:after,
+.d7rHODV83neFiPSeUqDB:after,
+.RrsZOGIxRodS0Y3_I2PP:after,
+.Ac2raqVCOQ_HYbbCkBAP:after,
+.tKaJ5awSBwDlHmRqmrzy:after {
     opacity: 0 !important;
     background: transparent !important;
     background-image: none !important;

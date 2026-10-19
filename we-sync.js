@@ -358,28 +358,48 @@
             const isCatjamEnabled = localStorage.getItem('catjam-settings.catjam-webm-position') !== null ||
                                     document.querySelector('script[src*="cat-jam"]') !== null;
             if (isCatjamEnabled && right && !document.getElementById('catjam-webm')) {
-                const cat = document.createElement('video');
-                cat.id = 'catjam-webm';
-                cat.setAttribute('loop', 'true');
-                cat.setAttribute('autoplay', 'true');
-                cat.setAttribute('muted', 'true');
-                cat.setAttribute('style', 'width: 65px; height: 65px;');
-                let catSrc = 'https://github.com/BlafKing/spicetify-cat-jam-synced/raw/main/src/resources/catjam.webm';
                 try {
-                    const storedLink = JSON.parse(localStorage.getItem('catjam-settings.catjam-webm-link') || '{}')?.value;
-                    if (storedLink) catSrc = storedLink;
-                } catch(e) {}
-                cat.src = catSrc;
-                right.firstChild ? right.insertBefore(cat, right.firstChild) : right.appendChild(cat);
-                if (window.Spicetify?.Player?.isPlaying()) {
-                    cat.play().catch(() => {});
+                    const cat = document.createElement('video');
+                    cat.id = 'catjam-webm';
+                    cat.setAttribute('loop', 'true');
+                    cat.setAttribute('autoplay', 'true');
+                    cat.setAttribute('muted', 'true');
+                    cat.setAttribute('style', 'width: 36px; height: 36px;');
+                    let catSrc = 'https://github.com/BlafKing/spicetify-cat-jam-synced/raw/main/src/resources/catjam.webm';
+                    try {
+                        const storedLink = JSON.parse(localStorage.getItem('catjam-settings.catjam-webm-link') || '{}')?.value;
+                        if (storedLink) catSrc = storedLink;
+                    } catch(e) {}
+                    cat.src = catSrc;
+                    if (right.firstChild && right.firstChild !== cat) {
+                        right.insertBefore(cat, right.firstChild);
+                    } else if (!right.contains(cat)) {
+                        right.appendChild(cat);
+                    }
+                    let isPlaying = false;
+                    try { isPlaying = Boolean(window.Spicetify?.Player?.isPlaying && window.Spicetify.Player.isPlaying()); } catch(e) {}
+                    if (isPlaying) {
+                        cat.play().catch(() => {});
+                    }
+                } catch(catErr) {
+                    console.warn('[we-sync] Cat-jam insert error:', catErr);
                 }
             }
         }
 
-        patchBar();
-        const obs = new MutationObserver(() => {
+        try {
             patchBar();
+        } catch(e) {}
+
+        let patchDebounce = null;
+        const obs = new MutationObserver(() => {
+            if (patchDebounce) return;
+            patchDebounce = setTimeout(() => {
+                patchDebounce = null;
+                try {
+                    patchBar();
+                } catch(e) {}
+            }, 150);
         });
         obs.observe(document.body, { childList: true, subtree: true });
 
@@ -388,7 +408,9 @@
             window.Spicetify.Player.addEventListener('onplaypause', () => {
                 const cat = document.getElementById('catjam-webm');
                 if (!cat) return;
-                if (window.Spicetify.Player.isPlaying()) {
+                let isPlaying = false;
+                try { isPlaying = Boolean(window.Spicetify?.Player?.isPlaying && window.Spicetify.Player.isPlaying()); } catch(e) {}
+                if (isPlaying) {
                     cat.play().catch(() => {});
                 } else {
                     cat.pause();

@@ -60,6 +60,11 @@ if %ERRORLEVEL% NEQ 0 (
     spicetify apply
 )
 
+if exist "%~dp0patch-spotify-1.3.5.js" (
+    echo [*] Đang áp dụng bản vá tương thích Spotify 1.3.5+ (Rspack ^& Proxy Fallback)...
+    node "%~dp0patch-spotify-1.3.5.js"
+)
+
 :: 5. Khóa lại tường bảo vệ chống Spotify tự ý âm thầm update lần sau
 echo [5/5] 🛡️ Đang kích hoạt lại Tường Chắn Bảo Vệ (Anti-Update Shield)...
 mkdir "%LOCALAPPDATA%\Spotify\Update" 2>nul

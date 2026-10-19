@@ -181,6 +181,11 @@ if %errorlevel% neq 0 (
     spicetify backup apply
 )
 
+if exist "%~dp0patch-spotify-1.3.5.js" (
+    echo [*] Đang áp dụng bản vá tương thích Spotify 1.3.5+ (Rspack ^& Proxy Fallback)...
+    node "%~dp0patch-spotify-1.3.5.js"
+)
+
 :: ==========================================
 :: Khởi chạy máy chủ ngầm lần đầu
 :: ==========================================
