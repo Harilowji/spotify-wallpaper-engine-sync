@@ -149,6 +149,7 @@ echo [2/4] Đang cài đặt Spicetify Extension...
 if not exist "%APPDATA%\spicetify\Extensions" mkdir "%APPDATA%\spicetify\Extensions"
 copy /y "%~dp0we-sync.js" "%APPDATA%\spicetify\Extensions\we-sync.js" >nul
 if exist "%~dp0cat-jam.js" copy /y "%~dp0cat-jam.js" "%APPDATA%\spicetify\Extensions\cat-jam.js" >nul
+if exist "%~dp0adblock.js" copy /y "%~dp0adblock.js" "%APPDATA%\spicetify\Extensions\adblock.js" >nul
 
 :: Chặn triệt để Spotify Auto-Update tự ý ghi đè làm mất giao diện Spicetify
 mkdir "%LOCALAPPDATA%\Spotify\Update" 2>nul
@@ -168,7 +169,7 @@ copy /y "%~dp0color.ini" "%APPDATA%\spicetify\Themes\TransparentTheme\color.ini"
 :: Bước 4: Áp dụng cài đặt Spicetify
 :: ==========================================
 echo [4/4] Đang áp dụng thiết lập vào Spotify...
-spicetify config extensions "we-sync.js|cat-jam.js" >nul 2>nul
+spicetify config extensions "we-sync.js|cat-jam.js|adblock.js" >nul 2>nul
 spicetify config current_theme TransparentTheme >nul 2>nul
 spicetify config inject_css 1 replace_colors 1 overwrite_assets 1 >nul 2>nul
 

@@ -16,6 +16,56 @@
     const oldPrompt = document.getElementById("we-sync-prompt");
     if (oldPrompt) oldPrompt.remove();
 
+    // =========================================================================
+    // 1. QUẢN LÝ CHẾ ĐỘ TRONG SUỐT (PURE TRANSPARENT / CONTRAST / FROSTED GLASS)
+    // =========================================================================
+    const TRANSPARENCY_MODES = {
+        pure: {
+            name: "Pure Transparent (100% Trong Suốt)",
+            overlayColor: "rgba(0, 0, 0, 0.15)",
+            bodyClass: "we-mode-pure"
+        },
+        contrast: {
+            name: "Crystal Contrast (Tăng Tương Phản)",
+            overlayColor: "rgba(0, 0, 0, 0.35)",
+            bodyClass: "we-mode-contrast"
+        },
+        frosted: {
+            name: "Frosted Glass (Kính Mờ Cao Cấp)",
+            overlayColor: "rgba(0, 0, 0, 0.22)",
+            bodyClass: "we-mode-frosted"
+        }
+    };
+
+    let currentModeKey = localStorage.getItem("we-sync-transparency-mode") || "pure";
+    if (!TRANSPARENCY_MODES[currentModeKey]) currentModeKey = "pure";
+
+    function applyTransparencyMode(modeKey, showToast = false) {
+        if (!TRANSPARENCY_MODES[modeKey]) modeKey = "pure";
+        currentModeKey = modeKey;
+        localStorage.setItem("we-sync-transparency-mode", modeKey);
+
+        const mode = TRANSPARENCY_MODES[modeKey];
+        const overlay = ensureOverlay();
+        if (overlay) {
+            overlay.style.backgroundColor = mode.overlayColor;
+        }
+
+        document.body.classList.remove("we-mode-pure", "we-mode-contrast", "we-mode-frosted");
+        document.body.classList.add(mode.bodyClass);
+
+        if (showToast) {
+            const msg = `✨ [WESync] Chế độ hiển thị: ${mode.name}`;
+            if (window.Spicetify?.showNotification) {
+                window.Spicetify.showNotification(msg);
+            } else {
+                debugText.style.opacity = "1";
+                debugText.innerText = msg;
+                setTimeout(() => { debugText.style.opacity = "0"; }, 2500);
+            }
+        }
+    }
+
     // Lớp phủ bán trong suốt tĩnh tối ưu GPU (thay thế CSS brightness shader)
     function ensureOverlay() {
         let overlay = document.getElementById("we-sync-overlay");
@@ -29,7 +79,9 @@
             overlay.style.height = "100vh";
             overlay.style.zIndex = "-1";
             overlay.style.pointerEvents = "none";
-            overlay.style.backgroundColor = "rgba(0, 0, 0, 0.58)";
+            const mode = TRANSPARENCY_MODES[currentModeKey] || TRANSPARENCY_MODES.pure;
+            overlay.style.backgroundColor = mode.overlayColor;
+            overlay.style.transition = "background-color 0.3s ease";
             document.body.prepend(overlay);
         }
         return overlay;
@@ -226,6 +278,18 @@
     document.addEventListener("click", ensureVideoPlaying);
     setInterval(ensureVideoPlaying, 3000);
 
+    // =========================================================================
+    // 2. PHÍM TẮT ALT + T: CHUYỂN NHANH CHẾ ĐỘ TRONG SUỐT
+    // =========================================================================
+    window.addEventListener("keydown", function(e) {
+        if (e.altKey && (e.key === "t" || e.key === "T" || e.code === "KeyT")) {
+            e.preventDefault();
+            const order = ["pure", "contrast", "frosted"];
+            const nextIdx = (order.indexOf(currentModeKey) + 1) % order.length;
+            applyTransparencyMode(order[nextIdx], true);
+        }
+    });
+
     async function checkBg() {
         try {
             if (isTranscoding) {
@@ -272,7 +336,6 @@
             }
 
             if (bgFile !== currentBg && bgFile !== ignoredBg) {
-                // Tự động chuyển ngay sang Wallpaper Engine nếu trước đó chỉ tạm nạp hình nền mặc định Windows lúc khởi động
                 if (currentBg === "" || isWindowsFallback(currentBg)) {
                     applyBackground(bgFile, isImage, isVideo);
                 } else {
@@ -289,7 +352,6 @@
             }
         }
 
-        // Tần số thích ứng: 5 giây khi hiển thị, 12 giây khi thu nhỏ/ẩn
         let pollDelay = 5000;
         if (document.hidden) {
             pollDelay = 12000;
@@ -300,7 +362,81 @@
     }
 
     // =========================================================================
-    // HỖ TRỢ TƯƠNG THÍCH SPOTIFY v1.3.4+ & CÁC EXTENSION (CAT-JAM, CONTROLS)
+    // 3. ENFORCE FULL TRANSPARENCY (TRIỆT TIÊU KHỐI NỀN ĐEN PLAYLIST & ĐỘNG)
+    // =========================================================================
+    function enforceFullTransparency() {
+        try {
+            // Các selector trọng tâm của Spotify trang Playlist, Album, Home và Action Bar
+            const targetSelectors = [
+                'section[data-testid="playlist-page"]',
+                'section[data-testid="playlist-page"] > div',
+                '[data-testid="playlist-tracklist"]',
+                '[data-testid="playlist-tracklist"] > div',
+                '[data-testid="action-bar-row"]',
+                '[data-testid="action-bar"]',
+                '.main-actionBar-ActionBar',
+                '.main-actionBarBackground-background',
+                '.main-entityHeader-backgroundColor',
+                '.main-entityHeader-background',
+                '.main-entityHeader-overlay',
+                '[data-testid="overscroll-background"]',
+                '[data-seamless-gradient]',
+                '#Desktop_LeftSidebar_Id',
+                '#Desktop_LeftSidebar_Id nav',
+                '#Desktop_LeftSidebar_Id nav > div',
+                '.YourLibraryX',
+                '[class*="YourLibrary"]',
+                '.Root__right-sidebar aside'
+            ];
+
+            const elements = document.querySelectorAll(targetSelectors.join(', '));
+            elements.forEach(el => {
+                if (el.style.backgroundColor !== 'transparent') {
+                    el.style.setProperty('background', 'transparent', 'important');
+                    el.style.setProperty('background-color', 'transparent', 'important');
+                    el.style.setProperty('background-image', 'none', 'important');
+                    el.style.setProperty('box-shadow', 'none', 'important');
+                }
+            });
+
+            // Quét các thẻ div mang inline background-color hoặc linear-gradient được gán động
+            const styledDivs = document.querySelectorAll('.main-view-container div[style*="background"], section[data-testid] div[style*="background"]');
+            styledDivs.forEach(el => {
+                // Bảo vệ các phần tử media, thanh tiến trình, nút play và chú mèo
+                if (
+                    el.tagName === 'IMG' ||
+                    el.id === 'we-sync-overlay' ||
+                    el.id === 'we-sync-video' ||
+                    el.id === 'catjam-webm' ||
+                    el.closest('#catjam-webm') ||
+                    el.closest('[data-testid="play-button"]') ||
+                    el.classList.contains('main-playButton-PlayButton') ||
+                    el.closest('[role="progressbar"]') ||
+                    el.classList.contains('x-progressBar-progressBarBg') ||
+                    el.classList.contains('x-progressBar-fillColor') ||
+                    el.getAttribute('data-testid') === 'background-image' ||
+                    el.getAttribute('data-testid') === 'cover-art-image' ||
+                    el.getAttribute('data-testid') === 'card-image'
+                ) {
+                    return;
+                }
+
+                const bg = el.style.backgroundColor;
+                const bgImg = el.style.backgroundImage;
+                if ((bg && bg !== 'transparent') || (bgImg && bgImg.includes('gradient'))) {
+                    el.style.setProperty('background', 'transparent', 'important');
+                    el.style.setProperty('background-color', 'transparent', 'important');
+                    el.style.setProperty('background-image', 'none', 'important');
+                    el.style.setProperty('box-shadow', 'none', 'important');
+                }
+            });
+        } catch (e) {
+            console.warn('[WESync] enforceFullTransparency error:', e);
+        }
+    }
+
+    // =========================================================================
+    // 4. HỖ TRỢ BỐ CỤC SPOTIFY & THANH ĐIỀU KHIỂN (CAT-JAM, COVER ART, TIẾN TRÌNH)
     // =========================================================================
     function initSpotifyLayoutBridge() {
         function patchBar() {
@@ -329,7 +465,6 @@
             const left = row.children[0];
             const center = row.children[1];
             const right = row.children[2];
-            // extraControls là thẻ div chứa các nút điều khiển, loại trừ video cat
             const extraControls = right ? Array.from(right.children).find(el => el.tagName === 'DIV') : null;
 
             if (left && !left.classList.contains('main-nowPlayingBar-left')) {
@@ -393,6 +528,7 @@
 
         try {
             patchBar();
+            enforceFullTransparency();
         } catch(e) {}
 
         let patchDebounce = null;
@@ -402,6 +538,7 @@
                 patchDebounce = null;
                 try {
                     patchBar();
+                    enforceFullTransparency();
                 } catch(e) {}
             }, 150);
         });
@@ -422,6 +559,9 @@
             });
         }
     }
+
+    // Khởi tạo chế độ trong suốt đã lưu
+    applyTransparencyMode(currentModeKey, false);
 
     initSpotifyLayoutBridge();
     checkBg();
