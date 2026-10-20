@@ -1,4 +1,4 @@
-# 🎵 Spotify x Wallpaper Engine Sync v2.5
+# 🎵 Spotify x Wallpaper Engine Sync v2.5.2
 
 <div align="center">
 
@@ -8,7 +8,7 @@
 
 [![GitHub Stars](https://img.shields.io/github/stars/Harilowji/spotify-wallpaper-engine-sync?style=for-the-badge&logo=github&color=FFD700)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/Harilowji/spotify-wallpaper-engine-sync?style=for-the-badge&logo=github&color=00B4D8)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/network/members)
-[![Version](https://img.shields.io/badge/version-2.5.1-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/releases)
+[![Version](https://img.shields.io/badge/version-2.5.2-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/releases)
 [![Spotify](https://img.shields.io/badge/spotify-v1.3.5%20tested-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://www.spotify.com/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![Spicetify](https://img.shields.io/badge/extension-Spicetify%20v2.45+-FF6B6B.svg?style=for-the-badge)](https://spicetify.app/)
@@ -16,28 +16,31 @@
 
 <br/>
 
-**Biến giao diện Spotify thành một tác phẩm nghệ thuật sống động — Tự động đồng bộ hình nền động & tĩnh từ Wallpaper Engine hoặc Windows Desktop với hiệu ứng kính mờ (Frosted Glass) siêu mượt!**
+**Biến giao diện Spotify thành một tác phẩm nghệ thuật sống động — Tự động đồng bộ hình nền động & tĩnh từ Wallpaper Engine hoặc Windows Desktop với độ trong suốt 100% (Pure Ultra-Transparent) siêu mượt!**
 
-[⚡ Lệnh Cài Nhanh 1-Click](#-cách-1-cài-đặt-siêu-tốc-1-dòng-lệnh-powershell---khuyên-dùng) • [✨ Tính Năng Nổi Bật](#-tính-năng-nổi-bật) • [📥 Hướng Dẫn Chi Tiết](#-hướng-dẫn-tải--cài-đặt-chi-tiết) • [🔄 Khắc Phục Khi Update](#-khi-spotify-tự-cập-nhật-thì-làm-sao) • [English Quickstart](#-english-quickstart)
+[⚡ Lệnh Cài Nhanh 1-Click](#-cài-đặt-siêu-tốc-bằng-1-dòng-lệnh-dành-cho-mọi-người) • [✨ Tính Năng Nổi Bật](#-tính-năng-nổi-bật) • [📥 Hướng Dẫn Chi Tiết](#-hướng-dẫn-tải--cài-đặt-chi-tiết) • [🔄 Khắc Phục Khi Update](#-khi-spotify-tự-cập-nhật-thì-làm-sao) • [English Quickstart](#-english-quickstart) • [🤖 Prompt Cho AI](#-bạn-không-rành-kỹ-thuật-copy-prompt-này-gửi-cho-ai-để-được-hỗ-trợ)
 
 </div>
 
 ---
 
-## ⚡ CÀI ĐẶT NHANH TRONG 5 GIÂY (POWERSHELL 1-LINER)
+## ⚡ CÀI ĐẶT SIÊU TỐC BẰNG 1 DÒNG LỆNH (DÀNH CHO MỌI NGƯỜI)
 
-Chỉ cần mở **PowerShell** (hoặc Windows Terminal) trên máy tính của bạn, dán dòng lệnh sau và nhấn **Enter**:
-
-```powershell
-iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-sync/main/setup.ps1 | iex
-```
-
-*(hoặc dùng lệnh `irm`: `irm https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-sync/main/setup.ps1 | iex`)*
-
-> 💡 **Lệnh trên sẽ tự động:**
-> 1. Tải bản cài đặt mới nhất từ GitHub về máy.
-> 2. Giải nén an toàn vào thư mục `Downloads`.
-> 3. Tự động chạy `install.bat` để cấu hình tất cả mọi thứ (Node.js, FFmpeg, Spicetify, Theme & Server ngầm) hoàn toàn tự động!
+> 🚀 **Không cần biết lập trình hay gõ lệnh phức tạp!** Chỉ cần 3 bước đơn giản:
+> 1. Nhấn tổ hợp phím **`Windows + X`** trên bàn phím -> Chọn **`Terminal`** (hoặc **`PowerShell`**).
+> 2. Sao chép và dán dòng lệnh sau vào rồi nhấn **Enter**:
+>
+> ```powershell
+> iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-sync/main/setup.ps1 | iex
+> ```
+> *(hoặc dùng lệnh `irm`: `irm https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-sync/main/setup.ps1 | iex`)*
+>
+> 3. Trình cài đặt **Zero-Touch** sẽ tự động 100%:
+>    - Kiểm tra và tự chuyển đổi Spotify Microsoft Store sang Spotify Desktop chuẩn.
+>    - Tự cài Node.js, FFmpeg, Spicetify CLI nếu máy chưa có.
+>    - Khóa tính năng tự cập nhật ngầm của Spotify (chống mất giao diện).
+>    - Cài đặt theme trong suốt 100%, chú mèo Cat Jam và tích hợp mod chặn quảng cáo.
+>    - Khởi chạy máy chủ ngầm và tự mở Spotify lên cho bạn thưởng thức ngay lập tức!
 
 ---
 
@@ -56,14 +59,17 @@ iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-s
 * Công nghệ **HTTP Byte-Range Streaming** (Status 206) phát video ngay lập tức với mức tiêu thụ CPU & GPU cực thấp.
 * **Bộ nhớ đệm thông minh (Auto Cache Cleaner):** Tự động băm mã MD5 và chỉ lưu tối đa 10 hình nền gần nhất, tự dọn dẹp các file cũ trong `%TEMP%\spotify_we_cache`, đảm bảo không lo đầy ổ cứng.
 
-### 4. 💎 Giao Diện Kính Mờ Trong Suốt Đỉnh Cao (Frosted Glass Theme)
-* Xóa sạch các khối nền hộp đen đục ngầu truyền thống của Spotify.
-* Hiệu ứng kính mờ **Glassmorphism** sang trọng cho thanh danh sách phát (Left Sidebar), thanh điều khiển (Player Bar) và khung lời bài hát (Lyrics).
-* **Trang Nghệ sĩ (Artist Page) trong suốt:** Tích hợp hiệu ứng cuộn mờ dần mượt mà, hòa quyện tự nhiên cùng hình nền động.
+### 4. 💎 Giao Diện Trong Suốt 100% & Phím Tắt `Alt + T` Đa Chế Độ
+* **Pure Ultra-Transparent:** Xóa sạch 100% các khối hộp nền đen đục ngầu trên Playlist, Album, Home, Sidebar và Now Playing Bar.
+* **Phím tắt `Alt + T` — Đổi nhanh 3 chế độ hiển thị:**
+  1. **Pure Transparent (Mặc định):** Trong suốt 100%, lộ toàn bộ hình nền động rực rỡ từ Wallpaper Engine.
+  2. **Crystal Contrast:** Thêm lớp phủ tối nhẹ (35%) giúp chữ và danh sách bài hát tương phản rõ rệt khi dùng hình nền quá sáng.
+  3. **Frosted Glass:** Hiệu ứng kính mờ `blur(8px)` sang trọng chuẩn Fluent Design / Glassmorphism.
+* **Text Shadow đa lớp:** Chữ, tên bài hát và nghệ sĩ luôn sắc nét, rõ ràng trên mọi góc nhìn.
 
-### 5. 🐱 Chi Tiết Tùy Chỉnh Độc Đáo
-* **Icon chú mèo đáng yêu:** Tích hợp icon mèo trắng sinh động ngay cạnh biểu tượng micro, căn chỉnh tỉ lệ 36px chuẩn xác.
-* **Cover Art 42px tinh chỉnh:** Kích thước ảnh bìa bài hát được tối ưu không bị vỡ hạt và không bị tràn viền khi bạn phóng to cửa sổ Spotify.
+### 5. 🐱 Chú Mèo Nhảy (Cat Jam) & Mod Chặn Quảng Cáo (Adblockify)
+* **Chú mèo Cat Jam lắc lư theo điệu nhạc:** Biểu tượng chú mèo nhảy được đồng bộ nhịp nhàng theo trạng thái phát/dừng nhạc, tích hợp video WebM chất lượng cao chạy nội bộ siêu nhẹ.
+* **Tích hợp sẵn Adblockify:** Loại bỏ quảng cáo âm thanh và banner phiền toái, nghe nhạc liền mạch không gián đoạn.
 
 ### 6. 🛡️ Kháng Cập Nhật Toàn Diện (Anti-Update Shield & PE Auto-Healer)
 * **Tường chắn Anti-Update Shield:** Tự động thiết lập quyền ACL khóa chặt thư mục `Update` và `SpotifyUpdate.exe`. Spotify hoàn toàn không thể âm thầm tải bản cập nhật ngầm để ghi đè làm mất hình nền của bạn!
@@ -79,13 +85,13 @@ Dành cho tất cả mọi người khi truy cập GitHub của dự án!
 ### 📋 Điều kiện cần chuẩn bị:
 1. **Hệ điều hành:** Windows 10 hoặc Windows 11 (64-bit).
 2. **Spotify:** Cài đặt bản **Spotify Desktop truyền thống** tải từ trang chủ [spotify.com/download](https://www.spotify.com/download/windows/).  
-   > ⚠️ **LƯU Ý QUAN TRỌNG:** Bản tải từ **Microsoft Store** sẽ **KHÔNG** hoạt động do chính sách cô lập ứng dụng (sandbox) của Windows. Nếu đang dùng bản Store, bạn hãy gỡ ra và tải file `.exe` từ web Spotify nhé!
+   > ⚠️ **LƯU Ý:** Trình cài đặt tự động `install.bat` / `setup.ps1` sẽ **tự động kiểm tra và gỡ bản Microsoft Store**, sau đó tự động cài bản Desktop chính thức qua winget cho bạn nếu cần!
 3. *(Tùy chọn)*: **Wallpaper Engine** trên Steam.
 
 ---
 
 ### 🚀 Cách 1: Dùng lệnh tải tự động 1-Click (Khuyên dùng)
-Mở **PowerShell** và chạy lệnh:
+Bấm **`Windows + X`** -> Chọn **`Terminal`** hoặc **`PowerShell`** và chạy lệnh:
 ```powershell
 iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-sync/main/setup.ps1 | iex
 ```
@@ -96,9 +102,9 @@ iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-s
 1. Nhấp vào nút xanh **`Code`** ở đầu trang này -> Chọn **`Download ZIP`**  
    *(Hoặc tải từ mục [Releases](https://github.com/Harilowji/spotify-wallpaper-engine-sync/releases))*.
 2. Chuột phải vào file `.zip` vừa tải -> Chọn **`Extract All...` (Giải nén toàn bộ)** ra một thư mục bất kỳ.  
-   > ⚠️ **Chú ý:** Không chạy trực tiếp từ trong file nén `.zip`, phải giải nén ra trước!
+   > ⚠️ **Chú ý:** Phải giải nén toàn bộ ra trước, không bấm chạy trực tiếp trong file nén!
 3. Mở thư mục đã giải nén, nhấp đúp vào file **`install.bat`**.
-4. Trình cài đặt tự động sẽ làm mọi việc trong 1-2 phút.
+4. Trình cài đặt tự động sẽ làm mọi việc trong 1-2 phút và tự bật Spotify khi hoàn tất.
 
 ---
 
@@ -138,11 +144,11 @@ Nếu bạn muốn đưa Spotify về lại giao diện gốc ban đầu:
 
 ### Prerequisites
 * Windows 10 / 11 (64-bit).
-* Standard Spotify Desktop client from [spotify.com/download](https://www.spotify.com/download/windows/) (Microsoft Store version is **not** supported).
+* Standard Spotify Desktop client from [spotify.com/download](https://www.spotify.com/download/windows/) (Microsoft Store version is automatically converted by installer).
 * *(Optional)* Wallpaper Engine on Steam.
 
 ### 1-Line PowerShell Installation (Recommended)
-Open **PowerShell** and run:
+Press `Win + X` -> Open **Terminal** or **PowerShell**, then paste and press Enter:
 ```powershell
 iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-sync/main/setup.ps1 | iex
 ```
@@ -152,7 +158,7 @@ iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-s
 2. Extract the ZIP archive completely.
 3. Double-click **`install.bat`**.
 4. The automated installer will download required dependencies (`Node.js`, `FFmpeg`, `Spicetify`) via Windows Package Manager (`winget`), register the background daemon, and inject the theme.
-5. Launch Spotify and enjoy your synchronized live wallpaper!
+5. Press `Alt + T` inside Spotify to toggle transparency modes (*Pure 100%*, *Crystal Contrast*, *Frosted Glass*).
 
 ---
 
@@ -163,6 +169,29 @@ iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-s
 * **Spicetify CLI:** Can thiệp DOM và tiêm CSS / JS vào client Spotify.
 * **Vanilla JavaScript & CSS3:** Tùy biến giao diện kính mờ và xử lý video không độ trễ.
 * **Windows Batch & VBScript & PowerShell:** Điều phối cài đặt và tự phục hồi mượt mà.
+
+---
+
+## 🤖 Bạn Không Rành Kỹ Thuật? Copy Prompt Này Gửi Cho AI Để Được Hỗ Trợ!
+
+> Khi gặp bất kỳ lỗi nào hoặc cần hướng dẫn chi tiết từng bước, bạn chỉ cần copy toàn bộ đoạn bên dưới và gửi cho **ChatGPT, Gemini hoặc Microsoft Copilot**:
+
+```markdown
+Hãy đóng vai trợ lý kỹ thuật hướng dẫn mình cài đặt bản mod **Spotify x Wallpaper Engine Sync** của tác giả **Harilowji** (https://github.com/Harilowji/spotify-wallpaper-engine-sync) trên Windows 10/11.
+
+**Thông tin hệ thống của bản mod này:**
+- **Điều kiện bắt buộc**: Phải dùng bản Spotify Desktop tải từ trang chủ `spotify.com/download` (KHÔNG dùng bản tải từ Microsoft Store vì bị khóa sandbox).
+- **Cách cài nhanh nhất (1-Click)**: Mở PowerShell và chạy lệnh:
+  `iwr -useb https://raw.githubusercontent.com/Harilowji/spotify-wallpaper-engine-sync/main/setup.ps1 | iex`
+- **Cách cài bằng file ZIP**: Tải ZIP từ GitHub -> Giải nén toàn bộ (`Extract All`) ra thư mục thường -> Chạy file `install.bat` (script sẽ tự động cài Node.js, FFmpeg, Spicetify, khóa tự cập nhật Spotify, cài theme trong suốt 100% và chạy ngầm máy chủ đồng bộ tại cổng `127.0.0.1:8989`).
+- **Phím tắt trong Spotify**: Nhấn `Alt + T` để đổi giữa 3 chế độ trong suốt (*Pure Transparent*, *Crystal Contrast*, *Frosted Glass*).
+- **Cách xử lý các lỗi thường gặp**:
+  1. Nếu báo *"The Spotify application is not responding"*: Mở CMD/PowerShell chạy `taskkill /f /im spotify.exe` rồi chạy lại `install.bat`.
+  2. Nếu cài xong mà nền vẫn đen: Kiểm tra xem có đang dùng Spotify bản Microsoft Store không, hoặc chạy lệnh `spicetify backup apply` trong PowerShell.
+  3. Nếu báo lỗi *"The system cannot find the path specified"*: Do chưa giải nén file ZIP trước khi bấm `install.bat`.
+
+Hãy hướng dẫn mình từng bước thật ngắn gọn, dễ hiểu cho người không rành máy tính. Nếu mình gửi ảnh chụp màn hình lỗi, hãy dựa vào các quy tắc trên để chỉ mình cách bấm sửa ngay nhé!
+```
 
 ---
 

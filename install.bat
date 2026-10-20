@@ -3,22 +3,96 @@ setlocal enabledelayedexpansion
 chcp 65001 >nul
 
 echo ======================================================================
-echo   🎵 SPOTIFY x WALLPAPER ENGINE SYNC - BỘ CÀI ĐẶT TỰ ĐỘNG
+echo   🎵 SPOTIFY x WALLPAPER ENGINE SYNC - BỘ CÀI ĐẶT ZERO-TOUCH v2.5.2
 echo   👤 Phát triển bởi: Harilowji (https://github.com/Harilowji)
-echo   ✨ Tự động đồng bộ hình nền động / tĩnh từ Wallpaper Engine vào Spotify
+echo   ✨ Tự động cấu hình 100%% - Trong suốt tuyệt đối - Chống lỗi vặt
 echo ======================================================================
 echo.
 
 :: ==========================================
-:: Kiểm tra các công cụ phụ thuộc hệ thống
+:: Bước 0: Ngăn chặn lỗi chạy trực tiếp từ file nén ZIP
 :: ==========================================
-echo [*] Đang kiểm tra các công cụ hệ thống...
+if not exist "%~dp0WESyncServer.js" (
+    echo.
+    echo ======================================================================
+    echo [LỖI NGHIÊM TRỌNG] THIẾU CÁC FILE CÀI ĐẶT!
+    echo.
+    echo Có vẻ bạn đang click trực tiếp từ trong file nén .ZIP.
+    echo Vui lòng bấm chuột phải vào file ZIP -^> chọn 'Extract All' (Giải nén toàn bộ)
+    echo ra một thư mục bình thường rồi chạy lại file install.bat nhé!
+    echo ======================================================================
+    echo.
+    pause
+    exit /b 1
+)
+
+:: ==========================================
+:: Bước 1: Kiểm tra & Xử lý bản Spotify chuẩn
+:: ==========================================
+echo [*] [1/6] Đang kiểm tra phiên bản Spotify Desktop...
+
+:: Đóng các tiến trình Spotify đang chạy ngầm trước để tránh xung đột
+taskkill /f /im Spotify.exe >nul 2>nul
+
+set "SPOTIFY_DIR=%APPDATA%\Spotify"
+set "SPOTIFY_EXE=%APPDATA%\Spotify\Spotify.exe"
+set "NEED_INSTALL_SPOTIFY=0"
+
+if not exist "!SPOTIFY_EXE!" (
+    set "NEED_INSTALL_SPOTIFY=1"
+)
+
+:: Kiểm tra nếu người dùng đang dùng bản Microsoft Store (SpotifyAB.SpotifyMusic)
+set "STORE_DETECTED="
+for /f "tokens=*" %%P in ('powershell -NoProfile -Command "(Get-AppxPackage -Name SpotifyAB.SpotifyMusic -ErrorAction SilentlyContinue).PackageFamilyName" 2^>nul') do (
+    set "STORE_DETECTED=%%P"
+)
+
+if defined STORE_DETECTED (
+    echo.
+    echo [CẢNH BÁO] Phát hiện bạn đang sử dụng Spotify từ Microsoft Store!
+    echo Bản Microsoft Store bị Windows cô lập (Sandbox), Spicetify KHÔNG THỂ can thiệp giao diện.
+    echo [*] Đang tự động gỡ bản Microsoft Store và cài đặt bản Spotify Desktop chuẩn...
+    winget uninstall SpotifyAB.SpotifyMusic --accept-source-agreements >nul 2>nul
+    set "NEED_INSTALL_SPOTIFY=1"
+)
+
+if "!NEED_INSTALL_SPOTIFY!"=="1" (
+    echo [*] Đang cài đặt Spotify Desktop chính thức qua winget...
+    winget install Spotify.Spotify --accept-package-agreements --accept-source-agreements
+    timeout /t 3 /nobreak >nul
+    if not exist "!SPOTIFY_EXE!" (
+        echo [!] Chưa tìm thấy Spotify sau khi winget cài đặt. Bạn có thể tải thủ công tại:
+        echo     https://www.spotify.com/download/windows/
+    ) else (
+        echo [OK] Đã cài đặt thành công Spotify Desktop chuẩn!
+    )
+) else (
+    echo [OK] Spotify Desktop chuẩn đã sẵn sàng.
+)
+
+:: Khởi chạy 5s để tự sinh file cấu hình prefs nếu là máy mới cài Spotify
+if not exist "%APPDATA%\Spotify\prefs" (
+    if exist "!SPOTIFY_EXE!" (
+        echo [*] Khởi chạy Spotify lần đầu để tự động tạo file cấu hình (prefs)...
+        start "" "!SPOTIFY_EXE!"
+        timeout /t 5 /nobreak >nul
+        taskkill /f /im Spotify.exe >nul 2>nul
+        timeout /t 1 /nobreak >nul
+    )
+)
+
+:: ==========================================
+:: Bước 2: Kiểm tra các công cụ hệ thống (winget, Node, Spicetify, FFmpeg)
+:: ==========================================
+echo.
+echo [*] [2/6] Đang kiểm tra các công cụ phụ thuộc hệ thống...
 
 :: 1. Kiểm tra winget
 where winget >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
     echo [CẢNH BÁO] Hệ thống chưa có 'winget'.
-    echo Nếu thiếu Node.js hoặc FFmpeg, bạn vui lòng cài thủ công:
+    echo Nếu thiếu Node.js hoặc FFmpeg, bạn có thể cài thủ công:
     echo   - Node.js: https://nodejs.org/
     echo   - FFmpeg:  https://ffmpeg.org/download.html
 )
@@ -33,13 +107,13 @@ if %ERRORLEVEL% NEQ 0 (
     echo [OK] Node.js đã sẵn sàng.
 )
 
-:: 3. Kiểm tra Spicetify
+:: 3. Kiểm tra Spicetify CLI
 where spicetify >nul 2>nul
 if %ERRORLEVEL% NEQ 0 (
     echo [THÔNG TIN] Đang tự động cài đặt Spicetify CLI...
-    powershell -Command "iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1 | iex"
+    powershell -NoProfile -Command "iwr -useb https://raw.githubusercontent.com/spicetify/cli/main/install.ps1 | iex"
     set "PATH=%PATH%;%LOCALAPPDATA%\spicetify"
-    echo [THÀNH CÔNG] Đã cài đặt Spicetify!
+    echo [THÀNH CÔNG] Đã cài đặt Spicetify CLI!
 ) else (
     echo [OK] Spicetify CLI đã sẵn sàng.
 )
@@ -57,36 +131,23 @@ if %ERRORLEVEL% NEQ 0 (
 :: Làm mới biến môi trường PATH tạm thời cho phiên làm việc
 for /f "tokens=2*" %%A in ('reg query "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" /v Path 2^>nul') do set "SYS_PATH=%%B"
 for /f "tokens=2*" %%A in ('reg query "HKCU\Environment" /v Path 2^>nul') do set "USR_PATH=%%B"
-set "PATH=%SYS_PATH%;%USR_PATH%;%PATH%;%LOCALAPPDATA%\spicetify"
+set "PATH=%SYS_PATH%;%USR_PATH%;%PATH%;%LOCALAPPDATA%\spicetify;C:\Program Files\nodejs"
 
 :: ==========================================
-:: Bước 1: Cài đặt Máy chủ nền (Daemon Server)
+:: Bước 3: Cài đặt Máy chủ nền (Daemon Server)
 :: ==========================================
 echo.
-echo [1/4] Đang cài đặt máy chủ nền WESync Server...
-
-:: Ngăn chặn lỗi chạy trực tiếp từ trong file nén ZIP
-if not exist "%~dp0WESyncServer.js" (
-    echo.
-    echo [LỖI NGHIÊM TRỌNG] Thiếu các file cài đặt!
-    echo Bạn có đang click trực tiếp từ file nén .ZIP không?
-    echo Vui lòng bấm chuột phải vào file ZIP -^> chọn 'Extract All' (Giải nén toàn bộ) ra một thư mục bình thường rồi chạy lại install.bat!
-    echo.
-    pause
-    exit /b 1
-)
+echo [*] [3/6] Đang cài đặt máy chủ nền WESync Server...
 
 mkdir "%APPDATA%\WESync" 2>nul
 copy /y "%~dp0WESyncServer.js" "%APPDATA%\WESync\" >nul
 if exist "%~dp0catjam.webm" copy /y "%~dp0catjam.webm" "%APPDATA%\WESync\" >nul
 
-:: Dừng các tiến trình server cũ đang chạy nếu có
-taskkill /f /fi "WINDOWTITLE eq WESyncServer_Loop" >nul 2>nul
-taskkill /f /im node.exe >nul 2>nul
-wmic process where "name='node.exe' and commandline like '%%WESyncServer%%'" call terminate >nul 2>nul
-wmic process where "name='cmd.exe' and commandline like '%%WESyncServer_Loop%%'" call terminate >nul 2>nul
+:: Dừng CHÍNH XÁC tiến trình WESyncServer cũ qua CIM/PowerShell
+:: (KHÔNG dùng taskkill /im node.exe bừa bãi tránh tắt nhầm ứng dụng khác, KHÔNG dùng wmic vì đã bị gỡ trên Win 11 24H2+)
+powershell -NoProfile -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq 'node.exe' -and $_.CommandLine -like '*WESyncServer*') -or ($_.Name -eq 'cmd.exe' -and $_.CommandLine -like '*WESyncServer_Loop*') } | ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>nul
 
-timeout /t 2 /nobreak >nul
+timeout /t 1 /nobreak >nul
 rmdir /s /q "%TEMP%\spotify_we_cache" 2>nul
 
 :: Tự động phân giải đường dẫn thực tế của node.exe và ffmpeg.exe
@@ -123,7 +184,7 @@ if "%FFMPEG_EXE%"=="" (
     set "FFMPEG_EXE=ffmpeg"
 )
 
-:: Tạo script vòng lặp tự khởi động lại khi crash (Self-Healing Loop)
+:: Tạo script vòng lặp tự phục hồi khi crash (Self-Healing Loop)
 set "LOOP_BAT=%APPDATA%\WESync\WESyncServer_Loop.bat"
 (
     echo @echo off
@@ -143,9 +204,11 @@ set "VBS_PATH=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\StartWESyn
 ) > "%VBS_PATH%"
 
 :: ==========================================
-:: Bước 2: Cài đặt Spicetify Extension
+:: Bước 4: Cài đặt Spicetify Extension & Khóa cập nhật Spotify
 :: ==========================================
-echo [2/4] Đang cài đặt Spicetify Extension...
+echo.
+echo [*] [4/6] Đang cài đặt Spicetify Extensions và thiết lập khiên bảo vệ...
+
 if not exist "%APPDATA%\spicetify\Extensions" mkdir "%APPDATA%\spicetify\Extensions"
 copy /y "%~dp0we-sync.js" "%APPDATA%\spicetify\Extensions\we-sync.js" >nul
 if exist "%~dp0cat-jam.js" copy /y "%~dp0cat-jam.js" "%APPDATA%\spicetify\Extensions\cat-jam.js" >nul
@@ -158,48 +221,69 @@ echo. > "%LOCALAPPDATA%\Spotify\SpotifyUpdate.exe" 2>nul
 icacls "%LOCALAPPDATA%\Spotify\SpotifyUpdate.exe" /deny "%username%":(W,D) >nul 2>nul
 
 :: ==========================================
-:: Bước 3: Cài đặt Giao diện Kính mờ Spicetify
+:: Bước 5: Cài đặt Theme & Áp dụng Spicetify thông minh
 :: ==========================================
-echo [3/4] Đang cài đặt Transparent Theme (Giao diện trong suốt)...
+echo.
+echo [*] [5/6] Đang cài đặt Ultra-Transparent Theme và áp dụng cài đặt...
+
 if not exist "%APPDATA%\spicetify\Themes\TransparentTheme" mkdir "%APPDATA%\spicetify\Themes\TransparentTheme"
 copy /y "%~dp0user.css" "%APPDATA%\spicetify\Themes\TransparentTheme\user.css" >nul
 copy /y "%~dp0color.ini" "%APPDATA%\spicetify\Themes\TransparentTheme\color.ini" >nul
 
-:: ==========================================
-:: Bước 4: Áp dụng cài đặt Spicetify
-:: ==========================================
-echo [4/4] Đang áp dụng thiết lập vào Spotify...
 spicetify config extensions "we-sync.js|cat-jam.js|adblock.js" >nul 2>nul
 spicetify config current_theme TransparentTheme >nul 2>nul
 spicetify config inject_css 1 replace_colors 1 overwrite_assets 1 >nul 2>nul
 
-echo [THÔNG TIN] Đang áp dụng thiết lập giao diện vào Spotify...
-taskkill /f /im spotify.exe >nul 2>nul
-timeout /t 2 /nobreak >nul
+:: Đóng triệt để Spotify trước khi patch để tránh lỗi "Spotify is not responding"
+taskkill /f /im Spotify.exe >nul 2>nul
+timeout /t 1 /nobreak >nul
+
+:: Áp dụng cài đặt thông minh: thử apply trước, nếu máy mới chưa có backup thì chạy backup apply
 spicetify apply >nul 2>nul
-if %errorlevel% neq 0 (
-    echo [THÔNG TIN] Phát hiện Spotify vừa cập nhật phiên bản mới, đang tự động đồng bộ lại...
-    spicetify restore >nul 2>nul
-    spicetify clear >nul 2>nul
+if %ERRORLEVEL% neq 0 (
+    echo [THÔNG TIN] Máy mới cài đặt hoặc Spotify vừa cập nhật, đang tự động tạo bản sao lưu (backup apply)...
     spicetify backup apply
+    if !ERRORLEVEL! neq 0 (
+        echo [THÔNG TIN] Đang làm sạch và đồng bộ lại...
+        spicetify restore backup apply
+    )
 )
 
+:: Luôn chạy bản vá tương thích Spotify 1.3.5+ (Rspack & Proxy Fallback)
 if exist "%~dp0patch-spotify-1.3.5.js" (
     echo [*] Đang áp dụng bản vá tương thích Spotify 1.3.5+ (Rspack ^& Proxy Fallback)...
     node "%~dp0patch-spotify-1.3.5.js"
 )
 
 :: ==========================================
-:: Khởi chạy máy chủ ngầm lần đầu
+:: Bước 6: Khởi chạy WESync Server & Tự động mở Spotify
 :: ==========================================
 echo.
-echo Đang khởi chạy máy chủ ngầm WESync...
+echo [*] [6/6] Đang khởi chạy máy chủ ngầm WESync và khởi động Spotify...
 wscript "%VBS_PATH%"
+timeout /t 2 /nobreak >nul
+
+:: Kiểm tra nhanh phản hồi máy chủ cổng 8989
+powershell -NoProfile -Command "try { $r = Invoke-WebRequest -Uri 'http://127.0.0.1:8989/status' -UseBasicParsing -TimeoutSec 3; Write-Host '       -> [OK] Máy chủ WESync Server đang hoạt động tốt tại cổng 8989!' -ForegroundColor Green } catch { Write-Host '       -> [!] Máy chủ WESync Server đang khởi tạo trong nền...' -ForegroundColor Yellow }"
+
+:: Tự động mở Spotify để người dùng thấy ngay thành quả
+if exist "!SPOTIFY_EXE!" (
+    echo [*] Đang mở ứng dụng Spotify...
+    start "" "!SPOTIFY_EXE!"
+)
 
 echo.
 echo ======================================================================
 echo   🎉 CHÚC MỪNG! BẠN ĐÃ CÀI ĐẶT THÀNH CÔNG!
-echo   ✨ Mở Spotify lên và thưởng thức giao diện đồng bộ hình nền tuyệt đẹp!
+echo.
+echo   ✨ Giao diện Spotify đã được kích hoạt trong suốt 100%%.
+echo   ⌨️ PHÍM TẮT TRONG SPOTIFY:
+echo      Bấm [Alt + T] để đổi giữa 3 chế độ:
+echo      1. Pure Transparent (Trong suốt 100%%)
+echo      2. Crystal Contrast (Tăng tương phản)
+echo      3. Frosted Glass (Kính mờ cao cấp)
+echo.
+echo   🐱 Chú mèo Cat Jam và Mod chặn quảng cáo đã sẵn sàng hoạt động!
 echo   👤 Dự án: Spotify x Wallpaper Engine Sync by Harilowji
 echo ======================================================================
 echo.
