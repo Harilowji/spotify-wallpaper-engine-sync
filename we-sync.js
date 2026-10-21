@@ -1,3 +1,8 @@
+/**
+ * Spotify Wallpaper Engine Sync - Spicetify Extension
+ * Version: v2.6.0 (Perfect Spatial Glass & Zero-CPU Overhead)
+ * Repository: https://github.com/Harilowji/spotify-wallpaper-engine-sync
+ */
 (function WESync() {
     let currentBg = "";
     let ignoredBg = "";
@@ -15,6 +20,8 @@
     if (oldOverlay) oldOverlay.remove();
     const oldPrompt = document.getElementById("we-sync-prompt");
     if (oldPrompt) oldPrompt.remove();
+    const oldToast = document.getElementById("we-sync-toast");
+    if (oldToast) oldToast.remove();
 
     // =========================================================================
     // 1. QUẢN LÝ CHẾ ĐỘ TRONG SUỐT (PURE TRANSPARENT / CONTRAST / FROSTED GLASS)
@@ -27,11 +34,11 @@
         },
         contrast: {
             name: "Crystal Contrast (Tăng Tương Phản)",
-            overlayColor: "rgba(0, 0, 0, 0.35)",
+            overlayColor: "rgba(0, 0, 0, 0.38)",
             bodyClass: "we-mode-contrast"
         },
         frosted: {
-            name: "Frosted Glass (Kính Mờ Cao Cấp)",
+            name: "Frosted Glass (Kính Mờ Phân Lớp)",
             overlayColor: "rgba(0, 0, 0, 0.22)",
             bodyClass: "we-mode-frosted"
         }
@@ -40,7 +47,29 @@
     let currentModeKey = localStorage.getItem("we-sync-transparency-mode") || "pure";
     if (!TRANSPARENCY_MODES[currentModeKey]) currentModeKey = "pure";
 
-    function applyTransparencyMode(modeKey, showToast = false) {
+    let toastTimeout = null;
+    function showToast(msg) {
+        let toast = document.getElementById("we-sync-toast");
+        if (!toast) {
+            toast = document.createElement("div");
+            toast.id = "we-sync-toast";
+            document.body.appendChild(toast);
+        }
+        toast.innerText = msg;
+        toast.classList.add("we-toast-show");
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+            toast.classList.remove("we-toast-show");
+        }, 2500);
+
+        if (window.Spicetify?.showNotification) {
+            try {
+                window.Spicetify.showNotification(msg);
+            } catch (e) {}
+        }
+    }
+
+    function applyTransparencyMode(modeKey, triggerToast = false) {
         if (!TRANSPARENCY_MODES[modeKey]) modeKey = "pure";
         currentModeKey = modeKey;
         localStorage.setItem("we-sync-transparency-mode", modeKey);
@@ -54,15 +83,8 @@
         document.body.classList.remove("we-mode-pure", "we-mode-contrast", "we-mode-frosted");
         document.body.classList.add(mode.bodyClass);
 
-        if (showToast) {
-            const msg = `✨ [WESync] Chế độ hiển thị: ${mode.name}`;
-            if (window.Spicetify?.showNotification) {
-                window.Spicetify.showNotification(msg);
-            } else {
-                debugText.style.opacity = "1";
-                debugText.innerText = msg;
-                setTimeout(() => { debugText.style.opacity = "0"; }, 2500);
-            }
+        if (triggerToast) {
+            showToast(`✨ Chế độ hiển thị: ${mode.name}`);
         }
     }
 
@@ -391,43 +413,94 @@
 
             const elements = document.querySelectorAll(targetSelectors.join(', '));
             elements.forEach(el => {
-                if (el.style.backgroundColor !== 'transparent') {
+                if (el.dataset.weTransparent !== '1' || el.style.backgroundColor !== 'transparent') {
                     el.style.setProperty('background', 'transparent', 'important');
                     el.style.setProperty('background-color', 'transparent', 'important');
                     el.style.setProperty('background-image', 'none', 'important');
                     el.style.setProperty('box-shadow', 'none', 'important');
+                    el.dataset.weTransparent = '1';
                 }
             });
 
             // Quét các thẻ div mang inline background-color hoặc linear-gradient được gán động
-            const styledDivs = document.querySelectorAll('.main-view-container div[style*="background"], section[data-testid] div[style*="background"]');
+            // Giới hạn trong scroll container hoặc section để tối ưu hiệu năng
+            const styledDivs = document.querySelectorAll('.main-view-container__scroll-node-child div[style*="background"], section[data-testid] div[style*="background"]');
             styledDivs.forEach(el => {
-                // Bảo vệ các phần tử media, thanh tiến trình, nút play và chú mèo
+                if (el.dataset.weTransparent === '1') return;
+
+                // 1. Bảo vệ các phần tử media, chú mèo, thông báo
                 if (
                     el.tagName === 'IMG' ||
                     el.id === 'we-sync-overlay' ||
                     el.id === 'we-sync-video' ||
+                    el.id === 'we-sync-img' ||
+                    el.id === 'we-sync-toast' ||
+                    el.id === 'we-sync-debug' ||
                     el.id === 'catjam-webm' ||
-                    el.closest('#catjam-webm') ||
-                    el.closest('[data-testid="play-button"]') ||
-                    el.classList.contains('main-playButton-PlayButton') ||
-                    el.closest('[role="progressbar"]') ||
-                    el.classList.contains('x-progressBar-progressBarBg') ||
-                    el.classList.contains('x-progressBar-fillColor') ||
-                    el.getAttribute('data-testid') === 'background-image' ||
-                    el.getAttribute('data-testid') === 'cover-art-image' ||
-                    el.getAttribute('data-testid') === 'card-image'
+                    el.closest('#catjam-webm')
                 ) {
                     return;
                 }
 
+                // 2. Bảo vệ ảnh bìa (backgroundImage dạng url(...) như "About the artist" / Header banner)
+                const bgImg = el.style.backgroundImage || '';
+                if (bgImg.includes('url(')) {
+                    return;
+                }
+
+                // 3. Bảo vệ thanh tiến trình nhạc và thanh âm lượng
+                if (
+                    el.closest('.playback-bar') ||
+                    el.closest('.volume-bar') ||
+                    el.closest('[data-testid*="progress"]') ||
+                    el.closest('[role="progressbar"]') ||
+                    el.classList.contains('x-progressBar-progressBarBg') ||
+                    el.classList.contains('x-progressBar-fillColor')
+                ) {
+                    return;
+                }
+
+                // 4. Bảo vệ nút bấm Encore, Play/Pause, Toggle, Badge
+                if (
+                    el.tagName === 'BUTTON' ||
+                    el.closest('button') ||
+                    el.closest('[data-testid="play-button"]') ||
+                    el.closest('[data-testid="control-button-playpause"]') ||
+                    el.classList.contains('main-playButton-PlayButton') ||
+                    el.closest('.encore-bright-accent-set') ||
+                    el.closest('.encore-inverted-light-set') ||
+                    el.getAttribute('data-encore-id') === 'buttonPrimary' ||
+                    el.getAttribute('data-encore-id') === 'buttonSecondary' ||
+                    el.getAttribute('data-encore-id') === 'buttonTertiary'
+                ) {
+                    return;
+                }
+
+                // 5. Bảo vệ Context Menu, Popup, Dialog, Tooltip
+                if (
+                    el.closest('[role="dialog"]') ||
+                    el.closest('[role="menu"]') ||
+                    el.closest('[data-tippy-root]') ||
+                    el.closest('.main-contextMenu-menu')
+                ) {
+                    return;
+                }
+
+                // 6. Bảo vệ cover-art hoặc card image
+                const dt = el.getAttribute('data-testid');
+                if (dt === 'background-image' || dt === 'cover-art-image' || dt === 'card-image') {
+                    return;
+                }
+
                 const bg = el.style.backgroundColor;
-                const bgImg = el.style.backgroundImage;
                 if ((bg && bg !== 'transparent') || (bgImg && bgImg.includes('gradient'))) {
                     el.style.setProperty('background', 'transparent', 'important');
                     el.style.setProperty('background-color', 'transparent', 'important');
-                    el.style.setProperty('background-image', 'none', 'important');
+                    if (bgImg && bgImg.includes('gradient')) {
+                        el.style.setProperty('background-image', 'none', 'important');
+                    }
                     el.style.setProperty('box-shadow', 'none', 'important');
+                    el.dataset.weTransparent = '1';
                 }
             });
         } catch (e) {
@@ -531,16 +604,17 @@
             enforceFullTransparency();
         } catch(e) {}
 
-        let patchDebounce = null;
+        // MutationObserver hợp nhất duy nhất, debounce 180ms, không bắt attributes để đạt 0% CPU
+        let bridgeDebounce = null;
         const obs = new MutationObserver(() => {
-            if (patchDebounce) return;
-            patchDebounce = setTimeout(() => {
-                patchDebounce = null;
+            if (bridgeDebounce) return;
+            bridgeDebounce = setTimeout(() => {
+                bridgeDebounce = null;
                 try {
                     patchBar();
                     enforceFullTransparency();
                 } catch(e) {}
-            }, 150);
+            }, 180);
         });
         obs.observe(document.body, { childList: true, subtree: true });
 
