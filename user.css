@@ -1,11 +1,11 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Spatial Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.6.0 (Perfect Spatial Glass & Zero-CPU Overhead)
+ * Version: 2.7.0 (100% Transparent Sticky Topbar, Scroll Mask Fade & Pure Lyrics Edition)
  */
 
 /* ==========================================================================
-   0. GHI ĐÈ BIẾN MÀU TOÀN CỤC & ENCORE THEME (BẢO VỆ NÚT BẤM ENCORE)
+   0. GHI ĐÈ BIẾN MÀU TOÀN CỤC, ENCORE THEME & LYRICS VARIABLES
    ========================================================================== */
 :root,
 body,
@@ -33,6 +33,11 @@ body,
   --background-tinted-highlight: rgba(255, 255, 255, 0.10) !important;
   --background-tinted-press: rgba(255, 255, 255, 0.16) !important;
   --text-subdued: rgba(255, 255, 255, 0.80) !important;
+  --lyrics-color-background: transparent !important;
+  --lyrics-color-active: #ffffff !important;
+  --lyrics-color-inactive: rgba(255, 255, 255, 0.45) !important;
+  --lyrics-color-passed: rgba(255, 255, 255, 0.32) !important;
+  --lyrics-color-messaging: rgba(255, 255, 255, 0.70) !important;
   --panel-gap: 8px !important;
 }
 
@@ -94,7 +99,7 @@ button[data-testid="control-button-playpause"] > span {
 }
 
 /* ==========================================================================
-   1. KHUNG GIAO DIỆN CHÍNH TRONG SUỐT (CORE CONTAINERS - KHÔNG PHÁ ẢNH NỀN)
+   1. KHUNG GIAO DIỆN CHÍNH TRONG SUỐT (CORE CONTAINERS)
    ========================================================================== */
 body,
 html,
@@ -133,7 +138,7 @@ div[data-testid="background"],
 footer,
 .WWTxshVPO07BZLrdUL3h,
 [class*="bokji"],
-.bokji1jrN2MBe7RA0384,
+.bokjI1jrN2MBe7RA0384,
 .L5dM7nzQpMJtRkvZZBZL,
 [class*="kqeAX"],
 .kqeAXHJzFfJ_27frg58J,
@@ -148,7 +153,77 @@ footer,
 }
 
 /* ==========================================================================
-   2. STRUCTURAL & SEMANTIC SELECTORS CHO PLAYLIST, ALBUM, ARTIST, HOME
+   2. THANH NGANG PHÍA TRÊN KHI CUỘN (STICKY TOPBAR) & SCROLL MASK FADE
+   ========================================================================== */
+header,
+header > div,
+[data-testid="topbar"],
+[data-testid="topbar"] > div,
+[data-testid="topbar"] div[style*="background"],
+.main-topBar-container,
+.main-topBar-container > div,
+.main-topBar-container div[style*="background"],
+.main-topBar-background,
+.main-topBar-overlay,
+.main-topBar-topbarContentWrapper,
+.main-topBar-topbarContent,
+.main-entityHeader-topbarContent,
+.Root__main-view header,
+.main-view-container header {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: none !important;
+}
+
+/* Ẩn triệt để mọi lớp phủ màu trích xuất trong Topbar khi cuộn Playlist/Album */
+header div[style*="background-color"]:not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set),
+.main-topBar-container div[style*="background-color"]:not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set),
+.main-topBar-background::before,
+.main-topBar-background::after,
+.main-topBar-overlay::before,
+.main-topBar-overlay::after {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  opacity: 0 !important;
+}
+
+/* Làm trong suốt hoàn toàn thanh tiêu đề cột (# | Title | Album | Date added) */
+.main-trackList-trackListHeader,
+.main-trackList-trackListHeaderStuck,
+[data-testid="tracklist-header"],
+[role="grid"] > [role="presentation"] > [role="row"] {
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  box-shadow: none !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+/* Hiệu ứng Scroll Mask Fade: Làm mờ dần các bài hát khi cuộn chạm vào thanh ngang phía trên để không đè chữ */
+.main-view-container__scroll-node {
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 60px,
+    rgba(0, 0, 0, 1) 108px,
+    rgba(0, 0, 0, 1) 100%
+  ) !important;
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0px,
+    transparent 60px,
+    rgba(0, 0, 0, 1) 108px,
+    rgba(0, 0, 0, 1) 100%
+  ) !important;
+}
+
+/* ==========================================================================
+   3. STRUCTURAL & SEMANTIC SELECTORS CHO PLAYLIST, ALBUM, ARTIST, HOME
    ========================================================================== */
 @keyframes weArtistBannerFadeOnScroll {
   0% { opacity: 1; }
@@ -187,35 +262,34 @@ section[data-testid="entity-page"] > div > div,
 [role="presentation"],
 .main-trackList-trackList,
 .main-trackList-trackListRow,
-.main-trackList-trackListHeader,
 .before-scroll-node,
 .before-scroll-node > div,
 [data-testid="entity-header"],
 .UbzV6GmaFXRSbQNfaAZL,
 .UbzV6GmaFXRSbQNfaAZL.gmb9NAvXgkg8XFMlNTNR.PlM17FTnYyoT8BzLzLfF,
 .kf1HPd1wGLg8GjJjmpc6,
-.goKxWei7aIJdA857U744,
-.e1NRR9_lRgRwafa1esSw,
+.goKXWei7aIJdA857U744,
+.e1NRR9_1RgRwafalesSw,
 [data-seamless-gradient],
 .d7rHODV83neFiPSeUqDB,
 .RrsZOGIxRodS0Y3_I2PP,
-.N8txqqpJDIs_ueBeNFtb,
+.N8txqpJDIS_ueBeNFTb,
 .noaTIqu8A6IyB7ABXzU8,
 .NG0KBybUCTo8_SxXHF3N,
-.V7ICuEr1ZBtemPGKXeZb,
+.V7IcuEr1ZBtemPGKXeZb,
 .a7UoWEK9rJQn8d_UPcnk,
-.oCSWtOAH_CgjIsi_H_PS,
+.oCSWtOAH_CgjIsI_H_PS,
 .Ac2raqVCOQ_HYbbCkBAP,
 .tKaJ5awSBwDlHmRqmrzy,
 .bKeLEamA2GUDUCyJn4Pr,
-.uCbWUZK48MWVSaUEQhQ0,
+.ucbWUZK48MWVSaUEQhQ0,
 .CR4LyX0RXKO7Xd8ixdOa,
-.oRu_0tmKCe8UkolB9TSg,
-[class*="V7ICu"],
+.oRu_0tmKCe8Uko1B9TSg,
+[class*="V7Icu"],
 [class*="oCSWt"],
 [class*="Ac2raq"],
 [class*="bKeLE"],
-[class*="uCbWU"],
+[class*="ucbWU"],
 ._ddPhxHdxmpT13IbjTmr,
 [class*="_ddPhx"],
 .rGEcrRDg48wzjhmWpRRi,
@@ -224,10 +298,10 @@ section[data-testid="entity-page"] > div > div,
 [class*="DQdyZ"],
 .EPbGVi8nqTUQDXtK5I1p,
 [class*="EPbGVi"],
-.wZUygRfNStcwxAbR8qfL,
+.wZUygRFNStcwxAbR8qfL,
 [class*="wZUyg"],
 [data-testid="overscroll-background"],
-.AJjP1RzhySWiLWVcLlNA,
+.AJjP1RzhySwiLWVcLLNA,
 [class*="AJjP1"],
 .xWAGb7rkhYb1eQ8LiDaB,
 [class*="xWAGb"] {
@@ -237,7 +311,6 @@ section[data-testid="entity-page"] > div > div,
   box-shadow: none !important;
 }
 
-/* Ẩn các pseudo-element tạo dải màu tối dưới Header */
 .main-entityHeader-overlay,
 .main-topBar-overlay,
 .main-view-container__scroll-node-child-blinder,
@@ -246,7 +319,7 @@ section[data-testid="entity-page"] > div > div,
 [data-seamless-gradient]::after,
 .main-actionBarBackground-background::before,
 .main-actionBarBackground-background::after,
-.goKxWei7aIJdA857U744:after,
+.goKXWei7aIJdA857U744:after,
 .d7rHODV83neFiPSeUqDB:after,
 .RrsZOGIxRodS0Y3_I2PP:after,
 .Ac2raqVCOQ_HYbbCkBAP:after,
@@ -257,16 +330,6 @@ section[data-testid="entity-page"] > div > div,
   background-image: none !important;
 }
 
-/* Thanh tiêu đề cột danh sách bài hát khi cuộn dính (Sticky Header) có kính mờ chống đè chữ */
-.main-trackList-trackListHeaderStuck {
-  background: rgba(12, 12, 16, 0.62) !important;
-  backdrop-filter: blur(14px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.35) !important;
-}
-
-/* Giữ lại ảnh bìa nghệ sĩ và mờ dần khi cuộn trang */
 .before-scroll-node [data-testid="background-image"],
 .before-scroll-node [class*="KRY4R"] {
   display: block !important;
@@ -280,10 +343,56 @@ section[data-testid="entity-page"] > div > div,
 }
 
 /* ==========================================================================
-   3. THANH ĐIỀU HƯỚNG TRÊN CÙNG (TOP NAVIGATION & SEARCH BAR)
+   4. TRANG LYRICS (LỜI BÀI HÁT) TRONG SUỐT HOÀN TOÀN 100%
+   ========================================================================== */
+[data-testid="lyrics-page"],
+[data-testid="lyrics-page"] > div,
+[data-testid="lyrics-page"] div[style*="background"],
+[data-testid="fullscreen-lyric"],
+[data-testid="lyrics-cinema"],
+.Root__lyrics-cinema,
+.Root__lyrics-cinema > div,
+.main-lyricsCinema-container,
+.main-lyricsCinema-container > div,
+.main-lyricsCinema-container div[style*="background"],
+.lyrics-lyrics-background,
+.lyrics-lyrics-container,
+.lyrics-lyrics-contentContainer,
+.lyrics-lyrics-contentWrapper,
+.main-lyricsView-lyricsViewContent,
+div[style*="--lyrics-color-background"],
+div[style*="--lyrics-color-active"],
+main:has([data-testid="lyrics-line"]),
+main:has([data-testid="lyrics-line"]) div {
+  --lyrics-color-background: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+/* Chữ lời bài hát sắc nét, nổi bật trên nền động Wallpaper Engine */
+[data-testid="lyrics-line"],
+.lyrics-lyricsContent-lyric,
+.main-lyricsView-textRow {
+  color: rgba(255, 255, 255, 0.48) !important;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.85), 0 0 4px rgba(0, 0, 0, 0.6) !important;
+  transition: color 0.25s ease, transform 0.25s ease, text-shadow 0.25s ease !important;
+}
+
+[data-testid="lyrics-line"][aria-current="true"],
+[data-testid="lyrics-line"].lyrics-lyricsContent-active,
+.lyrics-lyricsContent-active,
+.main-lyricsView-textRow-active {
+  color: #ffffff !important;
+  text-shadow: 0 0 18px rgba(255, 255, 255, 0.65), 0 2px 10px rgba(0, 0, 0, 0.95) !important;
+  transform: scale(1.02) !important;
+}
+
+/* ==========================================================================
+   5. THANH ĐIỀU HƯỚNG TRÊN CÙNG (GLOBAL NAV & SEARCH BAR)
    ========================================================================== */
 .Root__globalNav,
-.main-topBar-container,
 #global-nav-bar,
 #global-nav-bar > div {
   background-color: transparent !important;
@@ -306,7 +415,7 @@ form[role="search"] input,
 }
 
 /* ==========================================================================
-   4. THANH THƯ VIỆN BÊN TRÁI (YOUR LIBRARY) & BÊN PHẢI (NOW PLAYING VIEW)
+   6. THANH THƯ VIỆN BÊN TRÁI (YOUR LIBRARY) & BÊN PHẢI (NOW PLAYING VIEW)
    ========================================================================== */
 #Desktop_LeftSidebar_Id,
 #Desktop_LeftSidebar_Id > div,
@@ -331,7 +440,7 @@ form[role="search"] input,
 .main-nowPlayingView-section,
 .main-nowPlayingView-content,
 .main-buddyFeed-container,
-.U6DZDQSNLMHSjnws7ZV1,
+.U6DZDQSNLMHsjnws7ZV1,
 .NsM_Z8RS1UDNffwrtu98,
 .tXGFYqRGWW13ldePz89Q,
 .jfXGHGTAx7Qc8JuCJ4K0,
@@ -345,13 +454,13 @@ form[role="search"] input,
 }
 
 /* ==========================================================================
-   5. THANH PHÁT NHẠC DƯỚI CÙNG (NOW PLAYING BAR) & TIẾN TRÌNH NHẠC
+   7. THANH PHÁT NHẠC DƯỚI CÙNG (NOW PLAYING BAR) & TIẾN TRÌNH NHẠC
    ========================================================================== */
 .Root__top-container > div:has(> [data-testid="now-playing-bar"]),
 .Root__top-container > div:has(> .main-nowPlayingBar-container),
 .Root__top-container > div:has(aside),
 .Root__top-container > div:has(footer),
-.z0qdvwslOFVOAihShLIq,
+.z0qdvwsl0FVOAihShLiq,
 .Root__now-playing-bar,
 footer,
 footer > div,
@@ -369,7 +478,7 @@ aside[data-testid="now-playing-bar"] > div,
 }
 
 #catjam-webm,
-video[id*="cat"] {
+video[id="cat"] {
   width: 36px !important;
   height: 36px !important;
   max-width: 38px !important;
@@ -540,10 +649,10 @@ h1, h2, h3 {
 }
 
 /* ==========================================================================
-   6. THẺ CARD, DANH SÁCH BÀI HÁT & BÀI HÁT ĐANG PHÁT
+   8. THẺ CARD, DANH SÁCH BÀI HÁT & BÀI HÁT ĐANG PHÁT
    ========================================================================== */
 .x0Tk9K1tu0sFwdD5iNF5,
-.ldcHu1zP_xmHBUFZFfeE,
+.ldcHu1zP_xmHBUFZfFeE,
 .main-card-card,
 .main-card-cardContainer,
 [data-encore-id="card"],
@@ -557,7 +666,7 @@ h1, h2, h3 {
 }
 
 .x0Tk9K1tu0sFwdD5iNF5:hover,
-.ldcHu1zP_xmHBUFZFfeE:hover,
+.ldcHu1zP_xmHBUFZfFeE:hover,
 .main-card-card:hover,
 .main-card-cardContainer:hover,
 [data-encore-id="card"]:hover,
@@ -589,7 +698,6 @@ h1, h2, h3 {
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
 }
 
-/* Tô sáng tinh tế cho bài hát đang phát */
 .main-trackList-playing [data-encore-id="text"],
 [data-testid="tracklist-row"] [style*="color: var(--text-bright-accent"] {
   color: #1ed760 !important;
@@ -597,7 +705,7 @@ h1, h2, h3 {
 }
 
 /* ==========================================================================
-   7. POPUP, CONTEXT MENU, DROPDOWN & MODAL (KHÔNG BỊ VIỀN KÉP)
+   9. POPUP, CONTEXT MENU, DROPDOWN & MODAL (KHÔNG BỊ VIỀN KÉP)
    ========================================================================== */
 div[data-tippy-root],
 .main-contextMenu-menuHeading {
@@ -637,7 +745,7 @@ div[role="dialog"] {
 }
 
 /* ==========================================================================
-   8. THÔNG BÁO TOAST THÔNG MINH WE-SYNC & SCROLLBAR
+   10. THÔNG BÁO TOAST THÔNG MINH WE-SYNC & SCROLLBAR
    ========================================================================== */
 #we-sync-toast {
   position: fixed !important;
@@ -687,21 +795,18 @@ div[role="dialog"] {
 }
 
 /* ==========================================================================
-   9. BA CHẾ ĐỘ TRONG SUỐT SPATIAL GLASSMORPHISM (ALT + T)
+   11. BA CHẾ ĐỘ TRONG SUỐT SPATIAL GLASSMORPHISM (ALT + T)
    ========================================================================== */
-/* 1. Pure Transparent (Mặc định - Trong suốt 100%) */
 body.we-mode-pure .main-view-container__scroll-node-child {
   background-color: transparent !important;
 }
 
-/* 2. Crystal Contrast (Tăng độ tương phản chữ cho hình nền sáng) */
 body.we-mode-contrast [data-testid="tracklist-row"],
 body.we-mode-contrast .main-trackList-trackListRow,
 body.we-mode-contrast [data-encore-id="card"] {
   background-color: rgba(0, 0, 0, 0.18) !important;
 }
 
-/* 3. Frosted Spatial Glass (Kính mờ phân lớp 3D mượt mà, không gây lag cuộn) */
 body.we-mode-frosted #Desktop_LeftSidebar_Id,
 body.we-mode-frosted .Root__right-sidebar,
 body.we-mode-frosted [data-testid="now-playing-bar"],
@@ -715,7 +820,7 @@ body.we-mode-frosted [data-testid="playlist-tracklist"] {
 }
 
 /* ==========================================================================
-   10. ĐẢM BẢO Z-INDEX LỚP NỀN WALLPAPER ENGINE
+   12. ĐẢM BẢO Z-INDEX LỚP NỀN WALLPAPER ENGINE
    ========================================================================== */
 #main {
   position: relative !important;

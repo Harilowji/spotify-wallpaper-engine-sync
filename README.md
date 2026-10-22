@@ -1,4 +1,4 @@
-# 🎵 Spotify x Wallpaper Engine Sync v2.6.0
+# 🎵 Spotify x Wallpaper Engine Sync v2.7.0
 
 <div align="center">
 
@@ -8,7 +8,7 @@
 
 [![GitHub Stars](https://img.shields.io/github/stars/Harilowji/spotify-wallpaper-engine-sync?style=for-the-badge&logo=github&color=FFD700)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/Harilowji/spotify-wallpaper-engine-sync?style=for-the-badge&logo=github&color=00B4D8)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/network/members)
-[![Version](https://img.shields.io/badge/version-2.6.0-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/releases)
+[![Version](https://img.shields.io/badge/version-2.7.0-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/releases)
 [![Spotify](https://img.shields.io/badge/spotify-v1.3.5%20tested-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://www.spotify.com/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![Spicetify](https://img.shields.io/badge/extension-Spicetify%20v2.45+-FF6B6B.svg?style=for-the-badge)](https://spicetify.app/)
@@ -59,8 +59,9 @@
 * Công nghệ **HTTP Byte-Range Streaming** (Status 206) phát video ngay lập tức với mức tiêu thụ CPU & GPU cực thấp.
 * **Bộ nhớ đệm thông minh (Auto Cache Cleaner):** Tự động băm mã MD5 và chỉ lưu tối đa 10 hình nền gần nhất, tự dọn dẹp các file cũ trong `%TEMP%\spotify_we_cache`, đảm bảo không lo đầy ổ cứng.
 
-### 4. 💎 Giao Diện Trong Suốt 100% & Phím Tắt `Alt + T` Đa Chế Độ (Spatial Glassmorphism)
-* **Pure Ultra-Transparent:** Xóa sạch 100% các khối hộp nền đen đục ngầu trên Playlist, Album, Home, Sidebar và Now Playing Bar mà không làm mất màu nút bấm Play/Pause hay thanh tiến trình.
+### 4. 💎 Giao Diện Trong Suốt 100%, Sticky Topbar Fade & Pure Lyrics
+* **Pure Ultra-Transparent & Sticky Topbar Fade:** Xóa sạch 100% các khối hộp nền đen đục trên Playlist, Album, Home, Sidebar và Now Playing Bar. Khi cuộn trang, thanh Topbar và tiêu đề cột giữ trong suốt 100% kết hợp hiệu ứng **Scroll Mask Fade** làm mờ dần các bài hát cuộn tới mép trên, ngăn chặn triệt để hiện tượng đè chữ.
+* **100% Pure Lyrics View:** Loại bỏ hoàn toàn khối nền xanh dương/màu trích xuất khi bật lời bài hát (`--lyrics-color-background`), chữ lời bài hát nổi bật với vầng sáng (`text-shadow`) trên nền động Wallpaper Engine.
 * **Phím tắt `Alt + T` — Đổi nhanh 3 chế độ hiển thị kèm Toast thông báo sang trọng:**
   1. **Pure Transparent (Mặc định):** Trong suốt 100%, lộ toàn bộ hình nền động rực rỡ từ Wallpaper Engine với mức sử dụng phần cứng ~0%.
   2. **Crystal Contrast:** Thêm lớp phủ tối nhẹ (38%) và làm nổi bật danh sách bài hát giúp chữ luôn tương phản rõ rệt khi dùng hình nền quá sáng.

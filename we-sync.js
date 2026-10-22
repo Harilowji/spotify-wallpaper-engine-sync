@@ -1,6 +1,6 @@
 /**
  * Spotify Wallpaper Engine Sync - Spicetify Extension
- * Version: v2.6.0 (Perfect Spatial Glass & Zero-CPU Overhead)
+ * Version: v2.7.0 (100% Transparent Sticky Topbar, Scroll Mask Fade & Pure Lyrics Edition)
  * Repository: https://github.com/Harilowji/spotify-wallpaper-engine-sync
  */
 (function WESync() {
@@ -384,12 +384,45 @@
     }
 
     // =========================================================================
-    // 3. ENFORCE FULL TRANSPARENCY (TRIỆT TIÊU KHỐI NỀN ĐEN PLAYLIST & ĐỘNG)
+    // 3. ENFORCE FULL TRANSPARENCY (TRIỆT TIÊU KHỐI NỀN ĐEN PLAYLIST, TOPBAR & LYRICS)
     // =========================================================================
+    function clearElementBg(el) {
+        if (!el || !el.style) return;
+        if (el.style.getPropertyValue("background-color") !== "transparent") {
+            el.style.setProperty("background", "transparent", "important");
+            el.style.setProperty("background-color", "transparent", "important");
+            el.style.setProperty("background-image", "none", "important");
+            el.style.setProperty("box-shadow", "none", "important");
+        }
+        if (el.style.getPropertyValue("--lyrics-color-background") && el.style.getPropertyValue("--lyrics-color-background") !== "transparent") {
+            el.style.setProperty("--lyrics-color-background", "transparent", "important");
+        }
+    }
+
     function enforceFullTransparency() {
         try {
-            // Các selector trọng tâm của Spotify trang Playlist, Album, Home và Action Bar
+            // Các selector trọng tâm của Spotify trang Playlist, Album, Home, Topbar và Lyrics
             const targetSelectors = [
+                'header',
+                'header > div',
+                '[data-testid="topbar"]',
+                '[data-testid="topbar"] > div',
+                '.main-topBar-container',
+                '.main-topBar-background',
+                '.main-topBar-overlay',
+                '.main-trackList-trackListHeader',
+                '.main-trackList-trackListHeaderStuck',
+                '[data-testid="tracklist-header"]',
+                '[data-testid="lyrics-page"]',
+                '[data-testid="lyrics-page"] > div',
+                '[data-testid="fullscreen-lyric"]',
+                '[data-testid="lyrics-cinema"]',
+                '.Root__lyrics-cinema',
+                '.main-lyricsCinema-container',
+                '.main-lyricsCinema-container > div',
+                '.lyrics-lyrics-background',
+                '.lyrics-lyrics-container',
+                '.lyrics-lyrics-contentContainer',
                 'section[data-testid="playlist-page"]',
                 'section[data-testid="playlist-page"] > div',
                 '[data-testid="playlist-tracklist"]',
@@ -412,22 +445,20 @@
             ];
 
             const elements = document.querySelectorAll(targetSelectors.join(', '));
-            elements.forEach(el => {
-                if (el.dataset.weTransparent !== '1' || el.style.backgroundColor !== 'transparent') {
-                    el.style.setProperty('background', 'transparent', 'important');
-                    el.style.setProperty('background-color', 'transparent', 'important');
-                    el.style.setProperty('background-image', 'none', 'important');
-                    el.style.setProperty('box-shadow', 'none', 'important');
-                    el.dataset.weTransparent = '1';
-                }
-            });
+            elements.forEach(el => clearElementBg(el));
 
-            // Quét các thẻ div mang inline background-color hoặc linear-gradient được gán động
-            // Giới hạn trong scroll container hoặc section để tối ưu hiệu năng
-            const styledDivs = document.querySelectorAll('.main-view-container__scroll-node-child div[style*="background"], section[data-testid] div[style*="background"]');
+            // Quét các thẻ div mang inline background-color, linear-gradient hoặc --lyrics-color được gán động
+            const styledDivs = document.querySelectorAll(`
+                .main-view-container__scroll-node-child div[style*="background"],
+                section[data-testid] div[style*="background"],
+                header div[style*="background"],
+                [data-testid="topbar"] div[style*="background"],
+                [data-testid="lyrics-page"] div[style*="background"],
+                .main-lyricsCinema-container div[style*="background"],
+                div[style*="--lyrics-color"]
+            `);
+
             styledDivs.forEach(el => {
-                if (el.dataset.weTransparent === '1') return;
-
                 // 1. Bảo vệ các phần tử media, chú mèo, thông báo
                 if (
                     el.tagName === 'IMG' ||
@@ -492,16 +523,7 @@
                     return;
                 }
 
-                const bg = el.style.backgroundColor;
-                if ((bg && bg !== 'transparent') || (bgImg && bgImg.includes('gradient'))) {
-                    el.style.setProperty('background', 'transparent', 'important');
-                    el.style.setProperty('background-color', 'transparent', 'important');
-                    if (bgImg && bgImg.includes('gradient')) {
-                        el.style.setProperty('background-image', 'none', 'important');
-                    }
-                    el.style.setProperty('box-shadow', 'none', 'important');
-                    el.dataset.weTransparent = '1';
-                }
+                clearElementBg(el);
             });
         } catch (e) {
             console.warn('[WESync] enforceFullTransparency error:', e);
@@ -599,9 +621,26 @@
             }
         }
 
+        // Lắng nghe sự kiện scroll trên .main-view-container__scroll-node để xóa tức thì màu nền khi cuộn
+        let scrollDebounce = null;
+        function attachScrollListener() {
+            const scrollNode = document.querySelector('.main-view-container__scroll-node') || document.querySelector('.os-viewport');
+            if (scrollNode && !scrollNode.dataset.weScrollAttached) {
+                scrollNode.dataset.weScrollAttached = "1";
+                scrollNode.addEventListener('scroll', () => {
+                    if (scrollDebounce) return;
+                    scrollDebounce = setTimeout(() => {
+                        scrollDebounce = null;
+                        enforceFullTransparency();
+                    }, 50);
+                }, { passive: true });
+            }
+        }
+
         try {
             patchBar();
             enforceFullTransparency();
+            attachScrollListener();
         } catch(e) {}
 
         // MutationObserver hợp nhất duy nhất, debounce 180ms, không bắt attributes để đạt 0% CPU
@@ -613,6 +652,7 @@
                 try {
                     patchBar();
                     enforceFullTransparency();
+                    attachScrollListener();
                 } catch(e) {}
             }, 180);
         });
