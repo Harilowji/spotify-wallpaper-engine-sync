@@ -1,7 +1,7 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Spatial Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.7.1 (Unblock Modals & Popups, Modal Stacking Context & Zero-Overlap Edition)
+ * Version: 2.8.0 (Zero-Box Ultra-Clear Edition)
  */
 
 /* ==========================================================================
@@ -390,11 +390,16 @@ main:has([data-testid="lyrics-line"]) div {
 }
 
 /* ==========================================================================
-   5. THANH ĐIỀU HƯỚNG TRÊN CÙNG (GLOBAL NAV & SEARCH BAR)
+   5. THANH ĐIỀU HƯỚNG TRÊN CÙNG (GLOBAL NAV & SEARCH BAR) & VIÊN THUỐC LỌC
    ========================================================================== */
-.Root__globalNav,
-#global-nav-bar,
-#global-nav-bar > div {
+.Root__globalNav *,
+#global-nav-bar *,
+.main-globalNav-searchInputContainer,
+.main-globalNav-searchInputContainer > div,
+form[role="search"],
+form[role="search"] > div,
+.main-yourLibraryX-filterArea,
+.main-yourLibraryX-filterArea > div {
   background-color: transparent !important;
   background: transparent !important;
   box-shadow: none !important;
@@ -402,16 +407,40 @@ main:has([data-testid="lyrics-line"]) div {
 
 [data-testid="search-input"],
 form[role="search"] input,
-.main-globalNav-searchInputContainer input {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  backdrop-filter: blur(10px) !important;
+.main-globalNav-searchInputContainer input,
+.x-filterBox-filterInput,
+[role="searchbox"] {
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  backdrop-filter: none !important;
+  color: #ffffff !important;
 }
 
 [role="tablist"] button,
-[data-encore-id="chip"] {
-  background-color: rgba(255, 255, 255, 0.08) !important;
+[role="tablist"] button > span,
+[data-encore-id="chip"],
+[data-encore-id="chip"] > span,
+button[aria-label="Home"],
+[data-testid="home-button"] {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+  box-shadow: none !important;
+}
+
+[role="tablist"] button[aria-selected="true"],
+[role="tablist"] button[aria-selected="true"] > span,
+[data-encore-id="chip"][aria-selected="true"] {
+  background-color: rgba(255, 255, 255, 0.16) !important;
+  border-color: rgba(255, 255, 255, 0.35) !important;
+}
+
+/* Ẩn nút quảng cáo "Explore Premium" màu trắng đục gây chói và che góc trên */
+button[data-testid="upgrade-button"],
+.main-topBar-UpgradeButton,
+a[href*="spotify.com/premium"] {
+  display: none !important;
 }
 
 /* ==========================================================================
@@ -451,6 +480,37 @@ form[role="search"] input,
   background: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
+}
+
+/* Làm trong suốt 100% toàn bộ các hộp con (widgets, mini lyrics, about artist, credits, queue) trong cột phải và thư viện trái */
+#Desktop_LeftSidebar_Id *:not(img):not(video):not(svg):not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set),
+.Root__right-sidebar *:not(img):not(video):not(svg):not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set),
+aside.NowPlayingView *:not(img):not(video):not(svg):not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set),
+.main-nowPlayingView-section,
+.main-nowPlayingView-section > div,
+.main-nowPlayingView-aboutArtistV2,
+.main-nowPlayingView-credits,
+.main-nowPlayingView-queue,
+.main-nowPlayingView-lyricsContent,
+[data-testid="lyrics-card"],
+[data-testid="artist-card"],
+[data-testid="credits-card"],
+[data-testid="queue-card"] {
+  --background-base: transparent !important;
+  --background-elevated-base: transparent !important;
+  --background-tinted-base: transparent !important;
+  --lyrics-color-background: transparent !important;
+  background: transparent !important;
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+/* Giữ lại ảnh nghệ sĩ trong thẻ About the Artist bên cột phải */
+.Root__right-sidebar [data-testid="background-image"],
+aside.NowPlayingView [data-testid="background-image"],
+.main-nowPlayingView-aboutArtistV2 [style*="background-image: url("] {
+  background-color: transparent !important;
 }
 
 /* ==========================================================================
@@ -649,31 +709,61 @@ h1, h2, h3 {
 }
 
 /* ==========================================================================
-   8. THẺ CARD, DANH SÁCH BÀI HÁT & BÀI HÁT ĐANG PHÁT
+   8. THẺ CARD, LƯỚI SHORTCUT ĐẦU TRANG CHỦ & HỘP THỂ LOẠI TRANG TÌM KIẾM
    ========================================================================== */
-.x0Tk9K1tu0sFwdD5iNF5,
-.ldcHu1zP_xmHBUFZfFeE,
+.view-homeShortcutsGrid-shortcut,
+.view-homeShortcutsGrid-shortcut > div,
+[data-testid="home-page"] [data-encore-id="card"],
+[data-testid="home-page"] [data-encore-id="card"] > div,
+[data-testid="grid-container"] > div,
+[data-testid="grid-container"] [data-encore-id="card"],
 .main-card-card,
 .main-card-cardContainer,
+.main-card-draggable,
 [data-encore-id="card"],
-[data-testid="card"] {
+[data-testid="card"],
+.artist-artistPick-pinnedItem,
+.x0Tk9K1tu0sFwdD5iNF5,
+.ldcHu1zP_xmHBUFZfFeE {
   background: transparent !important;
   background-color: transparent !important;
+  background-image: none !important;
   border: 1px solid transparent !important;
   border-radius: 10px !important;
   box-shadow: none !important;
   transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease !important;
 }
 
-.x0Tk9K1tu0sFwdD5iNF5:hover,
-.ldcHu1zP_xmHBUFZfFeE:hover,
+/* Khi di chuột vào hộp nhỏ chỉ hiện viền sáng siêu mảnh, không che nền */
+.view-homeShortcutsGrid-shortcut:hover,
+[data-encore-id="card"]:hover,
 .main-card-card:hover,
 .main-card-cardContainer:hover,
-[data-encore-id="card"]:hover,
+.x0Tk9K1tu0sFwdD5iNF5:hover,
+.ldcHu1zP_xmHBUFZfFeE:hover,
 [data-testid="card"]:hover {
-  background-color: rgba(255, 255, 255, 0.08) !important;
+  background-color: rgba(255, 255, 255, 0.05) !important;
   border-color: rgba(255, 255, 255, 0.14) !important;
   transform: translateY(-2px);
+}
+
+/* Các Hộp Thể Loại (Browse / Genre Cards) trên trang Search */
+[data-testid="browse-card"],
+[data-testid="browse-card"] > div,
+a[href*="/genre/"],
+a[href*="/genre/"] > div,
+a[href*="/concerts"] > div {
+  background: rgba(255, 255, 255, 0.03) !important;
+  background-color: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 10px !important;
+  box-shadow: none !important;
+}
+
+[data-testid="browse-card"]:hover,
+a[href*="/genre/"]:hover > div {
+  background-color: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.22) !important;
 }
 
 [data-testid="tracklist-row"],
@@ -705,7 +795,7 @@ h1, h2, h3 {
 }
 
 /* ==========================================================================
-   9. POPUP, CONTEXT MENU, DROPDOWN & MODAL (KHÔNG BỊ CHẶN CLICK & VIỀN KÉP)
+   9. POPUP, CONTEXT MENU, DROPDOWN & MODAL (KÍNH PHA LÊ SIÊU NHẸ)
    ========================================================================== */
 /* Nâng toàn bộ Portals và Modals lên trên #main để không bị chặn click chuột */
 .ReactModalPortal,
@@ -717,7 +807,7 @@ div[data-tippy-root] {
   pointer-events: auto !important;
 }
 
-/* Lớp phủ mờ (Backdrop Overlay) phía sau modal */
+/* Lớp phủ mờ (Backdrop Overlay) phía sau modal - giảm độ tối để không che hình nền */
 .GenericModal__overlay {
   position: fixed !important;
   top: 0 !important;
@@ -725,24 +815,41 @@ div[data-tippy-root] {
   width: 100vw !important;
   height: 100vh !important;
   z-index: 99999 !important;
-  background-color: rgba(0, 0, 0, 0.65) !important;
-  backdrop-filter: blur(8px) !important;
-  -webkit-backdrop-filter: blur(8px) !important;
+  background-color: rgba(0, 0, 0, 0.18) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
   pointer-events: auto !important;
 }
 
-/* Khối nội dung hộp thoại (Dialog / Modal) */
+/* Khối nội dung hộp thoại (Dialog / Modal) dạng kính mờ tinh thể pha lê nhẹ */
 .GenericModal,
 div[role="dialog"] {
   position: relative !important;
   z-index: 100000 !important;
-  background: rgba(20, 20, 24, 0.88) !important;
-  backdrop-filter: blur(25px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  background: rgba(12, 12, 16, 0.32) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 16px !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
   pointer-events: auto !important;
+}
+
+/* Làm trong suốt toàn bộ các hộp con bên trong Dialog/Modal và Popover */
+div[role="dialog"] div:not([class*="progressBar"]):not(.main-playlistEditDetailsModal-image),
+.GenericModal div:not([class*="progressBar"]):not(.main-playlistEditDetailsModal-image),
+[data-encore-id="popover"] div {
+  background-color: transparent !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* Ô nhập liệu (Input / Textarea) bên trong Modal chỉnh sửa Playlist */
+div[role="dialog"] input,
+div[role="dialog"] textarea {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  color: #ffffff !important;
 }
 
 /* Nút đóng (X) và mọi nút thao tác bên trong Modal luôn bấm được */
@@ -773,18 +880,22 @@ div[data-tippy-root],
   backdrop-filter: none !important;
 }
 
+/* Context Menu, Dropdown, Popover & Spotify Connect Device List */
 div[role="menu"],
 ul[role="menu"],
 .main-contextMenu-menu,
-.main-userWidget-dropDownMenu {
+.main-userWidget-dropDownMenu,
+[data-encore-id="popover"],
+.connect-device-list-container,
+.main-connect-device-picker {
   position: relative !important;
   z-index: 100000 !important;
-  background: rgba(18, 18, 22, 0.85) !important;
-  backdrop-filter: blur(22px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
+  background: rgba(12, 12, 16, 0.32) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 12px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
   pointer-events: auto !important;
 }
 

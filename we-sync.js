@@ -1,6 +1,6 @@
 /**
  * Spotify Wallpaper Engine Sync - Spicetify Extension
- * Version: v2.7.1 (Unblock Modals & Popups, Modal Stacking Context & Zero-Overlap Edition)
+ * Version: v2.8.0 (Zero-Box Ultra-Clear Edition)
  * Repository: https://github.com/Harilowji/spotify-wallpaper-engine-sync
  */
 (function WESync() {
@@ -29,7 +29,7 @@
     const TRANSPARENCY_MODES = {
         pure: {
             name: "Pure Transparent (100% Trong Suốt)",
-            overlayColor: "rgba(0, 0, 0, 0.15)",
+            overlayColor: "rgba(0, 0, 0, 0.10)",
             bodyClass: "we-mode-pure"
         },
         contrast: {
@@ -456,6 +456,10 @@
                 [data-testid="topbar"] div[style*="background"],
                 [data-testid="lyrics-page"] div[style*="background"],
                 .main-lyricsCinema-container div[style*="background"],
+                .Root__right-sidebar div[style*="background"],
+                aside div[style*="background"],
+                [data-encore-id="card"] div[style*="background"],
+                [data-testid="browse-card"] div[style*="background"],
                 div[style*="--lyrics-color"]
             `);
 
@@ -492,18 +496,18 @@
                     return;
                 }
 
-                // 4. Bảo vệ nút bấm Encore, Play/Pause, Toggle, Badge
+                // 4. Bảo vệ nút bấm Encore chính (Play/Pause xanh lá/trắng, Close button)
                 if (
-                    el.tagName === 'BUTTON' ||
-                    el.closest('button') ||
                     el.closest('[data-testid="play-button"]') ||
                     el.closest('[data-testid="control-button-playpause"]') ||
                     el.classList.contains('main-playButton-PlayButton') ||
+                    el.closest('.main-playButton-PlayButton') ||
                     el.closest('.encore-bright-accent-set') ||
                     el.closest('.encore-inverted-light-set') ||
                     el.getAttribute('data-encore-id') === 'buttonPrimary' ||
-                    el.getAttribute('data-encore-id') === 'buttonSecondary' ||
-                    el.getAttribute('data-encore-id') === 'buttonTertiary'
+                    el.closest('button[data-encore-id="buttonPrimary"]') ||
+                    el.closest('button[aria-label="Close"]') ||
+                    el.closest('.main-playlistEditDetailsModal-closeBtn')
                 ) {
                     return;
                 }
