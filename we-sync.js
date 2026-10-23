@@ -1,6 +1,6 @@
 /**
  * Spotify Wallpaper Engine Sync - Spicetify Extension
- * Version: v2.7.0 (100% Transparent Sticky Topbar, Scroll Mask Fade & Pure Lyrics Edition)
+ * Version: v2.7.1 (Unblock Modals & Popups, Modal Stacking Context & Zero-Overlap Edition)
  * Repository: https://github.com/Harilowji/spotify-wallpaper-engine-sync
  */
 (function WESync() {
@@ -114,6 +114,7 @@
     debugText.style.position = "fixed";
     debugText.style.bottom = "24px";
     debugText.style.left = "24px";
+    debugText.style.pointerEvents = "none";
     debugText.style.color = "rgba(255, 255, 255, 0.9)";
     debugText.style.fontSize = "13px";
     debugText.style.fontWeight = "500";
@@ -507,12 +508,15 @@
                     return;
                 }
 
-                // 5. Bảo vệ Context Menu, Popup, Dialog, Tooltip
+                // 5. Bảo vệ Context Menu, Popup, Dialog, Tooltip, Modals & Portals
                 if (
                     el.closest('[role="dialog"]') ||
                     el.closest('[role="menu"]') ||
                     el.closest('[data-tippy-root]') ||
-                    el.closest('.main-contextMenu-menu')
+                    el.closest('.main-contextMenu-menu') ||
+                    el.closest('.GenericModal__overlay') ||
+                    el.closest('.GenericModal') ||
+                    el.closest('.ReactModalPortal')
                 ) {
                     return;
                 }

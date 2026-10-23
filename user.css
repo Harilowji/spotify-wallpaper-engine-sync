@@ -1,7 +1,7 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Spatial Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.7.0 (100% Transparent Sticky Topbar, Scroll Mask Fade & Pure Lyrics Edition)
+ * Version: 2.7.1 (Unblock Modals & Popups, Modal Stacking Context & Zero-Overlap Edition)
  */
 
 /* ==========================================================================
@@ -705,8 +705,65 @@ h1, h2, h3 {
 }
 
 /* ==========================================================================
-   9. POPUP, CONTEXT MENU, DROPDOWN & MODAL (KHÔNG BỊ VIỀN KÉP)
+   9. POPUP, CONTEXT MENU, DROPDOWN & MODAL (KHÔNG BỊ CHẶN CLICK & VIỀN KÉP)
    ========================================================================== */
+/* Nâng toàn bộ Portals và Modals lên trên #main để không bị chặn click chuột */
+.ReactModalPortal,
+div[data-portal-id],
+.Root__modal-slot,
+div[data-tippy-root] {
+  position: relative !important;
+  z-index: 99999 !important;
+  pointer-events: auto !important;
+}
+
+/* Lớp phủ mờ (Backdrop Overlay) phía sau modal */
+.GenericModal__overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 99999 !important;
+  background-color: rgba(0, 0, 0, 0.65) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  pointer-events: auto !important;
+}
+
+/* Khối nội dung hộp thoại (Dialog / Modal) */
+.GenericModal,
+div[role="dialog"] {
+  position: relative !important;
+  z-index: 100000 !important;
+  background: rgba(20, 20, 24, 0.88) !important;
+  backdrop-filter: blur(25px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
+  pointer-events: auto !important;
+}
+
+/* Nút đóng (X) và mọi nút thao tác bên trong Modal luôn bấm được */
+.main-playlistEditDetailsModal-closeBtn,
+button[aria-label="Close"],
+.pSxFsY9Fgcj5f8Gf05mh,
+[data-testid="playlist-edit-details-modal"] button,
+div[role="dialog"] button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 100001 !important;
+}
+
+/* Phục hồi màu icon nút đóng (X) trong modal sáng rõ */
+.main-playlistEditDetailsModal-closeBtn svg,
+button[aria-label="Close"] svg,
+.pSxFsY9Fgcj5f8Gf05mh svg {
+  fill: #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+
 div[data-tippy-root],
 .main-contextMenu-menuHeading {
   background: transparent !important;
@@ -720,12 +777,15 @@ div[role="menu"],
 ul[role="menu"],
 .main-contextMenu-menu,
 .main-userWidget-dropDownMenu {
-  background: rgba(18, 18, 22, 0.78) !important;
+  position: relative !important;
+  z-index: 100000 !important;
+  background: rgba(18, 18, 22, 0.85) !important;
   backdrop-filter: blur(22px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(22px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 12px !important;
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
+  pointer-events: auto !important;
 }
 
 div[role="menuitem"]:hover,
@@ -735,18 +795,12 @@ li[role="presentation"] > button:hover,
   background-color: rgba(255, 255, 255, 0.12) !important;
 }
 
-div[role="dialog"] {
-  background: rgba(20, 20, 24, 0.85) !important;
-  backdrop-filter: blur(25px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(25px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6) !important;
-}
-
 /* ==========================================================================
    10. THÔNG BÁO TOAST THÔNG MINH WE-SYNC & SCROLLBAR
    ========================================================================== */
+#we-sync-debug {
+  pointer-events: none !important;
+}
 #we-sync-toast {
   position: fixed !important;
   bottom: 100px !important;
