@@ -1,6 +1,6 @@
 /**
  * Spotify Wallpaper Engine Sync - Spicetify Extension
- * Version: v2.8.0 (Zero-Box Ultra-Clear Edition)
+ * Version: v2.8.1 (Zero-Scrollbar Ultra-Clear Edition)
  * Repository: https://github.com/Harilowji/spotify-wallpaper-engine-sync
  */
 (function WESync() {
@@ -629,23 +629,79 @@
             }
         }
 
-        // Lắng nghe sự kiện scroll trên .main-view-container__scroll-node để xóa tức thì màu nền khi cuộn
+        // Đảm bảo toàn bộ thanh cuộn ảo (OverlayScrollbars) và WebKit scrollbar bị ẩn triệt để 100%
+        function ensureZeroScrollbarStyle() {
+            if (!document.getElementById('we-sync-zero-scrollbar')) {
+                const st = document.createElement('style');
+                st.id = 'we-sync-zero-scrollbar';
+                st.textContent = `
+                    ::-webkit-scrollbar, *::-webkit-scrollbar {
+                        display: none !important;
+                        width: 0 !important;
+                        height: 0 !important;
+                        background: transparent !important;
+                    }
+                    ::-webkit-scrollbar-thumb, *::-webkit-scrollbar-thumb,
+                    ::-webkit-scrollbar-track, *::-webkit-scrollbar-track,
+                    ::-webkit-scrollbar-corner, *::-webkit-scrollbar-corner {
+                        display: none !important;
+                        background: transparent !important;
+                    }
+                    html, body, #main, .Root, .Root__top-container, .Root__main-view,
+                    .main-view-container, .main-view-container__scroll-node,
+                    .main-view-container__scroll-node-child, .os-host, .os-padding,
+                    .os-viewport, .os-content, [data-overlayscrollbars-viewport],
+                    nav, aside, section, div, * {
+                        scrollbar-width: none !important;
+                        -ms-overflow-style: none !important;
+                    }
+                    .os-scrollbar, .os-scrollbar-track, .os-scrollbar-handle,
+                    .os-scrollbar-corner, .os-scrollbar-cornerless,
+                    .os-scrollbar-horizontal, .os-scrollbar-vertical,
+                    .os-theme-spotify, [class*="os-scrollbar"],
+                    [data-overlayscrollbars] > .os-scrollbar,
+                    [data-overlayscrollbars-viewport]::-webkit-scrollbar {
+                        display: none !important;
+                        opacity: 0 !important;
+                        visibility: hidden !important;
+                        pointer-events: none !important;
+                        width: 0 !important;
+                        height: 0 !important;
+                    }
+                    html, body, #main, .Root, .Root__top-container, .Root__main-view,
+                    .main-view-container, .main-view-container__scroll-node,
+                    .main-view-container__scroll-node-child {
+                        overflow-x: hidden !important;
+                    }
+                `;
+                (document.head || document.documentElement).appendChild(st);
+            }
+        }
+
+        // Lắng nghe sự kiện scroll trên toàn bộ cây DOM (window capture) để xóa tức thì màu nền khi cuộn
         let scrollDebounce = null;
+        function onAnyScroll() {
+            if (scrollDebounce) return;
+            scrollDebounce = setTimeout(() => {
+                scrollDebounce = null;
+                enforceFullTransparency();
+            }, 50);
+        }
+
         function attachScrollListener() {
+            if (!window._weScrollAttached) {
+                window._weScrollAttached = true;
+                window.addEventListener('scroll', onAnyScroll, { capture: true, passive: true });
+            }
             const scrollNode = document.querySelector('.main-view-container__scroll-node') || document.querySelector('.os-viewport');
             if (scrollNode && !scrollNode.dataset.weScrollAttached) {
                 scrollNode.dataset.weScrollAttached = "1";
-                scrollNode.addEventListener('scroll', () => {
-                    if (scrollDebounce) return;
-                    scrollDebounce = setTimeout(() => {
-                        scrollDebounce = null;
-                        enforceFullTransparency();
-                    }, 50);
-                }, { passive: true });
+                scrollNode.addEventListener('scroll', onAnyScroll, { passive: true });
             }
         }
 
         try {
+            ensureZeroScrollbarStyle();
             patchBar();
             enforceFullTransparency();
             attachScrollListener();
@@ -658,6 +714,7 @@
             bridgeDebounce = setTimeout(() => {
                 bridgeDebounce = null;
                 try {
+                    ensureZeroScrollbarStyle();
                     patchBar();
                     enforceFullTransparency();
                     attachScrollListener();

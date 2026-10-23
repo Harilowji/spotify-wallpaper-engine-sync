@@ -1,7 +1,7 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Spatial Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.8.0 (Zero-Box Ultra-Clear Edition)
+ * Version: 2.8.1 (Zero-Scrollbar Ultra-Clear Edition)
  */
 
 /* ==========================================================================
@@ -907,7 +907,7 @@ li[role="presentation"] > button:hover,
 }
 
 /* ==========================================================================
-   10. THÔNG BÁO TOAST THÔNG MINH WE-SYNC & SCROLLBAR
+   10. THÔNG BÁO TOAST THÔNG MINH WE-SYNC & TRIỆT TIÊU 100% THANH CUỘN (ZERO-SCROLLBAR)
    ========================================================================== */
 #we-sync-debug {
   pointer-events: none !important;
@@ -941,22 +941,81 @@ li[role="presentation"] > button:hover,
   transform: translateY(0) scale(1) !important;
 }
 
-::-webkit-scrollbar {
-  width: 6px !important;
-  height: 6px !important;
-}
-
-::-webkit-scrollbar-track {
+/* 1. Triệt tiêu hoàn toàn thanh cuộn WebKit trên toàn bộ ứng dụng (Vertical & Horizontal) */
+::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
   background: transparent !important;
 }
 
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.18) !important;
-  border-radius: 4px !important;
+::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
+  display: none !important;
+  background: transparent !important;
+  border: none !important;
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.35) !important;
+/* 2. Tiêu chuẩn scrollbar-width & -ms-overflow-style (W3C standard cho Chromium/CEF) */
+html,
+body,
+#main,
+.Root,
+.Root__top-container,
+.Root__main-view,
+.main-view-container,
+.main-view-container__scroll-node,
+.main-view-container__scroll-node-child,
+.os-host,
+.os-padding,
+.os-viewport,
+.os-content,
+[data-overlayscrollbars-viewport],
+nav,
+aside,
+section,
+div,
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* 3. Ẩn triệt để thanh cuộn ảo OverlayScrollbars của Spotify */
+.os-scrollbar,
+.os-scrollbar-track,
+.os-scrollbar-handle,
+.os-scrollbar-corner,
+.os-scrollbar-cornerless,
+.os-scrollbar-horizontal,
+.os-scrollbar-vertical,
+.os-theme-spotify,
+[class*="os-scrollbar"],
+[data-overlayscrollbars] > .os-scrollbar,
+[data-overlayscrollbars-viewport]::-webkit-scrollbar {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* 4. Ngăn chặn tuyệt đối hiện tượng rò rỉ thanh cuộn ngang (Horizontal Overflow Leak) */
+html,
+body,
+#main,
+.Root,
+.Root__top-container,
+.Root__main-view,
+.main-view-container,
+.main-view-container__scroll-node,
+.main-view-container__scroll-node-child {
+  overflow-x: hidden !important;
 }
 
 /* ==========================================================================
