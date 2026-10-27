@@ -1,6 +1,6 @@
 /**
  * Spotify Wallpaper Engine Sync - Spicetify Extension
- * Version: v2.8.1 (Zero-Scrollbar Ultra-Clear Edition)
+ * Version: v2.8.2 (Ultra-Clear Spatial Refinement & Now-Playing-View Optimization)
  * Repository: https://github.com/Harilowji/spotify-wallpaper-engine-sync
  */
 (function WESync() {
@@ -533,6 +533,16 @@
 
                 clearElementBg(el);
             });
+
+            // 7. Đảm bảo Cover Art trong Now Playing View không bị Canvas rỗng làm ẩn
+            const npvCover = document.querySelector('.main-nowPlayingView-coverArtContainer > div:first-child');
+            if (npvCover) {
+                const canvasVideo = document.querySelector('.canvasVideoContainerNPV video');
+                if (!canvasVideo && npvCover.style.visibility !== 'visible') {
+                    npvCover.style.setProperty('visibility', 'visible', 'important');
+                    npvCover.style.setProperty('opacity', '1', 'important');
+                }
+            }
         } catch (e) {
             console.warn('[WESync] enforceFullTransparency error:', e);
         }

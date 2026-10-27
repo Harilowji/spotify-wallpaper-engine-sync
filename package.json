@@ -1,6 +1,6 @@
 {
   "name": "spotify-wallpaper-engine-sync",
-  "version": "2.8.1",
+  "version": "2.8.2",
   "description": "Ultra-smooth real-time Wallpaper Engine & Windows Desktop background sync for Spotify using Spicetify",
   "main": "WESyncServer.js",
   "scripts": {
