@@ -1,6 +1,6 @@
 /**
  * Spotify Wallpaper Engine Sync - Spicetify Extension
- * Version: v2.8.2 (Ultra-Clear Spatial Refinement & Now-Playing-View Optimization)
+ * Version: v2.8.3 (Precision Popper Positioning & Non-Blocking Tooltip Engine)
  * Repository: https://github.com/Harilowji/spotify-wallpaper-engine-sync
  */
 (function WESync() {
@@ -516,6 +516,8 @@
                 if (
                     el.closest('[role="dialog"]') ||
                     el.closest('[role="menu"]') ||
+                    el.closest('[role="tooltip"]') ||
+                    el.closest('.main-contextMenu-tippy') ||
                     el.closest('[data-tippy-root]') ||
                     el.closest('.main-contextMenu-menu') ||
                     el.closest('.GenericModal__overlay') ||

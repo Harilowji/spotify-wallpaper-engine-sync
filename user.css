@@ -1,7 +1,7 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Spatial Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.8.2 (Ultra-Clear Spatial Refinement & Now-Playing-View Optimization)
+ * Version: 2.8.3 (Precision Popper Positioning & Non-Blocking Tooltip Engine)
  */
 
 /* ==========================================================================
@@ -840,14 +840,31 @@ a[href*="/genre/"]:hover > div {
 /* ==========================================================================
    9. POPUP, CONTEXT MENU, DROPDOWN & MODAL (KÍNH PHA LÊ SIÊU NHẸ)
    ========================================================================== */
-/* Nâng toàn bộ Portals và Modals lên trên #main để không bị chặn click chuột */
-.ReactModalPortal,
+/* Portals và Modals - Nâng lên trên #main mà không làm sai lệch luồng Flexbox */
+.ReactModalPortal:empty {
+  display: none !important;
+}
+
+.ReactModalPortal:not(:empty),
 div[data-portal-id],
-.Root__modal-slot,
-div[data-tippy-root] {
-  position: relative !important;
+.Root__modal-slot {
+  position: fixed !important;
+  inset: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
   z-index: 99999 !important;
+  pointer-events: none !important;
+}
+
+.ReactModalPortal:not(:empty) > *,
+div[data-portal-id] > *,
+.Root__modal-slot > * {
   pointer-events: auto !important;
+}
+
+/* Tippy Container - Bảo lưu định vị Absolute/Transform gốc của Popper, không kẹp lề flex */
+div[data-tippy-root] {
+  z-index: 99999 !important;
 }
 
 /* Lớp phủ mờ (Backdrop Overlay) phía sau modal - giảm độ tối để không che hình nền */
@@ -923,6 +940,27 @@ div[data-tippy-root],
   backdrop-filter: none !important;
 }
 
+/* Tooltip hiển thị chú thích nút bấm - Kính mờ sang trọng, tự thu gọn, không bao giờ chặn click */
+.main-contextMenu-tippy,
+[role="tooltip"] {
+  pointer-events: none !important;
+  background: rgba(16, 16, 22, 0.88) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+  color: #FFFFFF !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8) !important;
+  padding: 6px 12px !important;
+  max-width: 320px !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  line-height: 1.4 !important;
+}
+
 /* Context Menu, Dropdown, Popover & Spotify Connect Device List */
 div[role="menu"],
 ul[role="menu"],
@@ -931,14 +969,13 @@ ul[role="menu"],
 [data-encore-id="popover"],
 .connect-device-list-container,
 .main-connect-device-picker {
-  position: relative !important;
   z-index: 100000 !important;
-  background: rgba(12, 12, 16, 0.32) !important;
-  backdrop-filter: blur(14px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+  background: rgba(12, 12, 16, 0.75) !important;
+  backdrop-filter: blur(18px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 12px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
   pointer-events: auto !important;
 }
 

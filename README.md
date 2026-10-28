@@ -1,4 +1,4 @@
-# 🎵 Spotify x Wallpaper Engine Sync v2.8.2
+# 🎵 Spotify x Wallpaper Engine Sync v2.8.3
 
 <div align="center">
 
@@ -8,7 +8,7 @@
 
 [![GitHub Stars](https://img.shields.io/github/stars/Harilowji/spotify-wallpaper-engine-sync?style=for-the-badge&logo=github&color=FFD700)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/stargazers)
 [![GitHub Forks](https://img.shields.io/github/forks/Harilowji/spotify-wallpaper-engine-sync?style=for-the-badge&logo=github&color=00B4D8)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/network/members)
-[![Version](https://img.shields.io/badge/version-2.8.2-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/releases)
+[![Version](https://img.shields.io/badge/version-2.8.3-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://github.com/Harilowji/spotify-wallpaper-engine-sync/releases)
 [![Spotify](https://img.shields.io/badge/spotify-v1.3.5%20tested-1ED760.svg?style=for-the-badge&logo=spotify&logoColor=white)](https://www.spotify.com/)
 [![Platform](https://img.shields.io/badge/platform-Windows%2010%20%7C%2011-0078D6.svg?style=for-the-badge&logo=windows&logoColor=white)](https://www.microsoft.com/windows)
 [![Spicetify](https://img.shields.io/badge/extension-Spicetify%20v2.45+-FF6B6B.svg?style=for-the-badge)](https://spicetify.app/)
@@ -63,6 +63,7 @@
 * **Pure Ultra-Transparent & Sticky Topbar Fade:** Xóa sạch 100% các khối hộp nền đen đục trên Playlist, Album, Home, Sidebar và Now Playing Bar. Khi cuộn trang, thanh Topbar và tiêu đề cột giữ trong suốt 100% kết hợp hiệu ứng **Scroll Mask Fade** làm mờ dần các bài hát cuộn tới mép trên, ngăn chặn triệt để hiện tượng đè chữ.
 * **Zero-Scrollbar Ultra-Clear (v2.8.1):** Triệt tiêu 100% thanh cuộn ảo (OverlayScrollbars) và thanh cuộn WebKit trên toàn bộ ứng dụng, loại bỏ hoàn toàn hiện tượng rò rỉ thanh cuộn ngang (`overflow-x: hidden`). Màn hình hoàn toàn sạch bóng thanh cuộn, không che khuất hình nền Wallpaper Engine, trong khi thao tác cuộn chuột/cảm ứng vẫn đạt độ mượt tối đa.
 * **Now Playing View & Control Bar Refinement (v2.8.2):** Tối ưu toàn diện cột hiển thị bài hát bên phải (Now Playing View): bảo vệ ảnh bìa album Cover Art không bị placeholder Canvas rỗng làm ẩn; giữ nguyên ảnh thẻ nghệ sĩ "About the artist" với thiết kế thẻ kính bo cong cao cấp; khắc phục hoàn toàn lỗi tràn chữ đè lên nút checkmark/thư viện bằng hiệu ứng cắt rút gọn (ellipsis); nâng cấp độ tương phản rõ nét cho các nút chức năng thanh dưới (Lyrics, Queue, Connect, Volume) và tối ưu khoảng cách thoáng cho chú mèo Cat Jam.
+* **Precision Popper Positioning & Non-Blocking Tooltips (v2.8.3):** Khắc phục triệt để lỗi chú thích nút bấm (Tooltips) bị trôi dạt về góc trái màn hình đè lên danh sách bài hát hoặc kẹt cứng che khuất giao diện: bảo lưu nguyên vẹn hệ toạ độ Absolute của Popper/Tippy, giải phóng các cổng ReactModalPortal rỗng khỏi luồng Flexbox của Body, đồng thời áp dụng thiết kế kính pha lê mờ sang trọng với cơ chế `pointer-events: none` giúp mọi tooltip hiển thị chính xác theo con trỏ chuột, không bao giờ che khuất hay cản trở thao tác bấm của người dùng.
 * **100% Pure Lyrics View:** Loại bỏ hoàn toàn khối nền xanh dương/màu trích xuất khi bật lời bài hát (`--lyrics-color-background`), chữ lời bài hát nổi bật với vầng sáng (`text-shadow`) trên nền động Wallpaper Engine.
 * **Phím tắt `Alt + T` — Đổi nhanh 3 chế độ hiển thị kèm Toast thông báo sang trọng:**
   1. **Pure Transparent (Mặc định):** Trong suốt 100%, lộ toàn bộ hình nền động rực rỡ từ Wallpaper Engine với mức sử dụng phần cứng ~0%.
