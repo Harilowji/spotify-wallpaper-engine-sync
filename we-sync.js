@@ -1,14 +1,12 @@
 /**
- * Spotify x Wallpaper Engine Sync - Studio Suite v3.0.1
+ * Spotify x Wallpaper Engine Sync - Studio Suite v3.0.1 (Comprehensive Bugfix)
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Features:
- *  - 100% Ultra-Transparent & Spatial Glassmorphism UI
- *  - In-App Settings GUI Modal (Alt + S / Topbar Button)
- *  - Real-time Multi-Layer Canvas Audio Visualizer Engine
- *  - Material Design 3 Dynamic Color Extraction from Album Art
- *  - Rhythmic Squiggly Progress Scrubber
- *  - Zero-CPU MutationObserver & Debounced DOM Engine
- *  - Automatic WebSocket Reconnection & Local Video/Image Sync
+ * Fixes:
+ *  - Safe Spicetify Player Loader with Retries (Prevents unhandled runtime errors)
+ *  - Safe TopBar Button Insertion via Spicetify.Topbar.Button (Prevents React DOM crash)
+ *  - Standard Integer Z-Index (-2) for Canvas Visualizer
+ *  - Guarded DOM Ready Lifecycle in Bootstrap
+ *  - Full 100% Transparency preservation with Non-Destructive Observer
  */
 
 (function () {
@@ -17,7 +15,6 @@
   const WE_CONFIG = {
     WS_PORT: 8989,
     RECONNECT_DELAY: 3000,
-    HEARTBEAT_INTERVAL: 15000,
     STORAGE_KEY: "we-sync-settings-v3",
     DEFAULT_SETTINGS: {
       overlayOpacity: 0.15,
@@ -31,14 +28,12 @@
       catJamPos: "player",
       colorExtraction: true,
       accentPrimary: "#1ed760",
-      accentGlow: "rgba(30, 215, 96, 0.45)",
-      squigglyScrubber: true,
-      karaokeGlow: true
+      accentGlow: "rgba(30, 215, 96, 0.45)"
     }
   };
 
   /* ==========================================================================
-     1. SETTINGS MANAGER (PERSISTENT LOCALSTORAGE & CSS VARIABLE ENGINE)
+     1. SETTINGS MANAGER (PERSISTENT LOCALSTORAGE & CSS ENGINE)
      ========================================================================== */
   class WESettingsManager {
     constructor() {
@@ -114,7 +109,7 @@
   const settingsManager = new WESettingsManager();
 
   /* ==========================================================================
-     2. SETTINGS GUI MODAL (MATERIAL DESIGN 3 GLASSMORPHISM CONTROLLER)
+     2. SETTINGS GUI MODAL (SETTINGS BUTTON & GLASS CONTROLLER)
      ========================================================================== */
   class WESettingsGUI {
     constructor(settings) {
@@ -124,284 +119,32 @@
     }
 
     init() {
-      this.injectStyles();
       this.createTopbarButton();
       this.createModalDOM();
       this.bindKeyboardShortcuts();
       this.settings.subscribe(() => this.syncUIValues());
     }
 
-    injectStyles() {
-      if (document.getElementById("we-settings-dynamic-styles")) return;
-      const style = document.createElement("style");
-      style.id = "we-settings-dynamic-styles";
-      style.textContent = `
-        #we-settings-btn {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 50%;
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
-          color: #ffffff;
-          margin-left: 8px;
-          vertical-align: middle;
-        }
-        #we-settings-btn:hover {
-          transform: scale(1.08) rotate(30deg);
-          background: rgba(255, 255, 255, 0.12);
-          border-color: var(--we-accent-primary, #1ed760);
-        }
-        #we-settings-modal-overlay {
-          position: fixed;
-          top: 0;
-          left: 0;
-          width: 100vw;
-          height: 100vh;
-          z-index: 1000000;
-          background: rgba(0, 0, 0, 0.45);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          opacity: 0;
-          pointer-events: none;
-          transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        #we-settings-modal-overlay.active {
-          opacity: 1;
-          pointer-events: auto;
-        }
-        #we-settings-modal {
-          width: 600px;
-          max-width: 92vw;
-          max-height: 86vh;
-          background: rgba(14, 14, 20, 0.72);
-          backdrop-filter: blur(28px) saturate(180%);
-          -webkit-backdrop-filter: blur(28px) saturate(180%);
-          border: 1px solid rgba(255, 255, 255, 0.16);
-          border-radius: 20px;
-          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 30px var(--we-accent-glow, rgba(30, 215, 96, 0.25));
-          display: flex;
-          flex-direction: column;
-          overflow: hidden;
-          transform: scale(0.92);
-          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-        #we-settings-modal-overlay.active #we-settings-modal {
-          transform: scale(1);
-        }
-        .we-modal-header {
-          padding: 16px 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.10);
-        }
-        .we-modal-title {
-          font-size: 15px;
-          font-weight: 700;
-          color: #ffffff;
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .we-badge {
-          font-size: 10px;
-          padding: 3px 8px;
-          border-radius: 12px;
-          background: var(--we-accent-primary, #1ed760);
-          color: #000000;
-          font-weight: 800;
-        }
-        .we-modal-close {
-          background: transparent;
-          border: none;
-          color: #ffffff;
-          font-size: 22px;
-          cursor: pointer;
-          width: 30px;
-          height: 30px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 50%;
-          transition: background-color 0.2s ease;
-        }
-        .we-modal-close:hover {
-          background: rgba(255, 255, 255, 0.12);
-        }
-        .we-modal-tabs {
-          display: flex;
-          padding: 8px 16px;
-          gap: 6px;
-          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-          background: rgba(0, 0, 0, 0.2);
-        }
-        .we-tab-btn {
-          background: transparent;
-          border: 1px solid transparent;
-          color: rgba(255, 255, 255, 0.65);
-          padding: 7px 12px;
-          border-radius: 8px;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .we-tab-btn:hover {
-          color: #ffffff;
-          background: rgba(255, 255, 255, 0.06);
-        }
-        .we-tab-btn.active {
-          color: #000000;
-          background: var(--we-accent-primary, #1ed760);
-          font-weight: 700;
-        }
-        .we-modal-body {
-          padding: 20px 24px;
-          overflow-y: auto;
-          max-height: 460px;
-        }
-        .we-tab-panel {
-          display: none;
-        }
-        .we-tab-panel.active {
-          display: block;
-        }
-        .we-control-group {
-          margin-bottom: 18px;
-        }
-        .we-control-label {
-          display: flex;
-          justify-content: space-between;
-          font-size: 13px;
-          font-weight: 600;
-          color: #ffffff;
-          margin-bottom: 8px;
-        }
-        .we-slider {
-          width: 100%;
-          height: 6px;
-          border-radius: 3px;
-          background: rgba(255, 255, 255, 0.15);
-          outline: none;
-          accent-color: var(--we-accent-primary, #1ed760);
-          cursor: pointer;
-        }
-        .we-switch-row {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          margin-bottom: 14px;
-        }
-        .we-switch-row span {
-          font-size: 13px;
-          font-weight: 600;
-          color: #ffffff;
-        }
-        .we-switch {
-          position: relative;
-          display: inline-block;
-          width: 44px;
-          height: 24px;
-        }
-        .we-switch input {
-          opacity: 0;
-          width: 0;
-          height: 0;
-        }
-        .we-switch-slider {
-          position: absolute;
-          cursor: pointer;
-          top: 0;
-          left: 0;
-          right: 0;
-          bottom: 0;
-          background-color: rgba(255, 255, 255, 0.2);
-          transition: 0.3s;
-          border-radius: 24px;
-        }
-        .we-switch-slider:before {
-          position: absolute;
-          content: "";
-          height: 18px;
-          width: 18px;
-          left: 3px;
-          bottom: 3px;
-          background-color: white;
-          transition: 0.3s;
-          border-radius: 50%;
-        }
-        .we-switch input:checked + .we-switch-slider {
-          background-color: var(--we-accent-primary, #1ed760);
-        }
-        .we-switch input:checked + .we-switch-slider:before {
-          transform: translateX(20px);
-          background-color: #000000;
-        }
-        .we-preset-grid {
-          display: grid;
-          grid-template-columns: repeat(2, 1fr);
-          gap: 10px;
-          margin-top: 10px;
-        }
-        .we-preset-btn {
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          border-radius: 10px;
-          padding: 10px;
-          color: #ffffff;
-          font-size: 12px;
-          font-weight: 600;
-          cursor: pointer;
-          transition: all 0.2s ease;
-          text-align: left;
-        }
-        .we-preset-btn:hover {
-          background: rgba(255, 255, 255, 0.12);
-          border-color: var(--we-accent-primary, #1ed760);
-        }
-        .we-modal-footer {
-          padding: 12px 24px;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          border-top: 1px solid rgba(255, 255, 255, 0.10);
-          background: rgba(0, 0, 0, 0.2);
-        }
-        .we-reset-btn {
-          background: transparent;
-          border: 1px solid rgba(255, 255, 255, 0.2);
-          color: rgba(255, 255, 255, 0.7);
-          padding: 6px 14px;
-          border-radius: 8px;
-          font-size: 12px;
-          cursor: pointer;
-          transition: all 0.2s ease;
-        }
-        .we-reset-btn:hover {
-          color: #ffffff;
-          border-color: #ff5555;
-          background: rgba(255, 85, 85, 0.15);
-        }
-      `;
-      document.head.appendChild(style);
-    }
-
     createTopbarButton() {
       const tryInject = () => {
         if (document.getElementById("we-settings-btn")) return;
+
+        if (typeof Spicetify !== "undefined" && Spicetify.Topbar && Spicetify.Topbar.Button) {
+          try {
+            new Spicetify.Topbar.Button(
+              "Spotify x Wallpaper Engine Studio (Alt + S)",
+              `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
+              () => this.toggleModal()
+            );
+            return;
+          } catch (e) {}
+        }
+
         const targetContainer = document.querySelector(".main-topBar-container") || 
                                 document.querySelector("#global-nav-bar") ||
                                 document.querySelector(".Root__globalNav");
         if (!targetContainer) {
-          setTimeout(tryInject, 500);
+          setTimeout(tryInject, 600);
           return;
         }
 
@@ -434,14 +177,14 @@
           <div class="we-modal-header">
             <div class="we-modal-title">
               <span>Spotify x Wallpaper Engine Studio</span>
-              <span class="we-badge">v3.0.0</span>
+              <span class="we-badge">v3.0.1</span>
             </div>
             <button class="we-modal-close" id="we-modal-close-btn">&times;</button>
           </div>
           <div class="we-modal-tabs">
-            <button class="we-tab-btn active" data-tab="tab-glass"> Trong Suốt & Kính</button>
-            <button class="we-tab-btn" data-tab="tab-vis"> Sóng Nhạc Visualizer</button>
-            <button class="we-tab-btn" data-tab="tab-widget"> Cat-Jam & Scrubber</button>
+            <button class="we-tab-btn active" data-tab="tab-glass">🎨 Trong Suốt & Kính</button>
+            <button class="we-tab-btn" data-tab="tab-vis">🌊 Sóng Nhạc Visualizer</button>
+            <button class="we-tab-btn" data-tab="tab-widget">🐱 Cat-Jam & Scrubber</button>
             <button class="we-tab-btn" data-tab="tab-presets"> Presets & Màu Sắc</button>
           </div>
           <div class="we-modal-body">
@@ -496,13 +239,6 @@
               </div>
               <input type="range" class="we-slider" id="rng-cat-sz" min="24" max="60" value="${this.settings.config.catJamSize}">
             </div>
-            <div class="we-switch-row">
-              <span>Thanh Tua Nhạc Sóng Nước M3 (Squiggly Scrubber)</span>
-              <label class="we-switch">
-                <input type="checkbox" id="chk-squiggly" ${this.settings.config.squigglyScrubber ? "checked" : ""}>
-                <span class="we-switch-slider"></span>
-              </label>
-            </div>
 
             <!-- TAB 4: PRESETS -->
             <div class="we-tab-panel" id="tab-presets">
@@ -516,7 +252,7 @@
               <div style="font-size: 13px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">Chọn Cấu Hình Nhanh:</div>
               <div class="we-preset-grid">
                 <button class="we-preset-btn" data-preset="pure"> Pure 100% Transparent<br><small style="color:#aaa;">Trong suốt tối đa</small></button>
-                <button class="we-preset-btn" data-preset="contrast"> Crystal Contrast<br><small style="color:#aaa;">Rõ chữ cho nền sáng</small></button>
+                <button class="we-preset-btn" data-preset="contrast">🌟 Crystal Contrast<br><small style="color:#aaa;">Rõ chữ cho nền sáng</small></button>
                 <button class="we-preset-btn" data-preset="frosted"> Frosted Spatial<br><small style="color:#aaa;">Kính mờ phân lớp 3D</small></button>
                 <button class="we-preset-btn" data-preset="cyberpunk"> Cyberpunk Neon<br><small style="color:#aaa;">Viền phát sáng rực rỡ</small></button>
               </div>
@@ -539,7 +275,6 @@
         if (e.target === overlay) this.closeModal();
       });
 
-      // Tabs switching
       const tabBtns = overlay.querySelectorAll(".we-tab-btn");
       const tabPanels = overlay.querySelectorAll(".we-tab-panel");
       tabBtns.forEach((btn) => {
@@ -553,7 +288,6 @@
         });
       });
 
-      // Controls binding
       const rngOverlay = overlay.querySelector("#rng-overlay");
       const lblOverlay = overlay.querySelector("#lbl-overlay-val");
       rngOverlay.addEventListener("input", (e) => {
@@ -596,17 +330,11 @@
         this.settings.save({ catJamSize: val });
       });
 
-      const chkSquiggly = overlay.querySelector("#chk-squiggly");
-      chkSquiggly.addEventListener("change", (e) => {
-        this.settings.save({ squigglyScrubber: e.target.checked });
-      });
-
       const chkColor = overlay.querySelector("#chk-color");
       chkColor.addEventListener("change", (e) => {
         this.settings.save({ colorExtraction: e.target.checked });
       });
 
-      // Presets
       overlay.querySelectorAll(".we-preset-btn").forEach((pBtn) => {
         pBtn.addEventListener("click", () => {
           const type = pBtn.getAttribute("data-preset");
@@ -623,7 +351,6 @@
         });
       });
 
-      // Reset
       overlay.querySelector("#we-reset-defaults-btn").addEventListener("click", () => {
         this.settings.reset();
         this.syncUIValues();
@@ -669,9 +396,6 @@
         lblCatSz.textContent = `${cfg.catJamSize}px`;
       }
 
-      const chkSquiggly = overlay.querySelector("#chk-squiggly");
-      if (chkSquiggly) chkSquiggly.checked = cfg.squigglyScrubber;
-
       const chkColor = overlay.querySelector("#chk-color");
       if (chkColor) chkColor.checked = cfg.colorExtraction;
     }
@@ -711,7 +435,7 @@
   }
 
   /* ==========================================================================
-     3. RHYTHMIC AUDIO WAVE VISUALIZER ENGINE (CANVAS 2D 60FPS)
+     3. RHYTHMIC AUDIO WAVE VISUALIZER (CANVAS 2D 60FPS WITH INTEGER Z-INDEX)
      ========================================================================== */
   class AudioWaveVisualizer {
     constructor(settings) {
@@ -729,7 +453,7 @@
     init() {
       this.canvas = document.createElement("canvas");
       this.canvas.id = "we-sync-visualizer";
-      this.canvas.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-1.5;";
+      this.canvas.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-2;";
       document.body.appendChild(this.canvas);
       this.ctx = this.canvas.getContext("2d");
       this.resize();
@@ -830,7 +554,7 @@
   }
 
   /* ==========================================================================
-     4. DYNAMIC COLOR EXTRACTOR (16x16 CANVAS K-MEANS ACCENT DETECTOR)
+     4. DYNAMIC COLOR EXTRACTOR (WITH SAFE SPICETIFY POLLING)
      ========================================================================== */
   class DynamicColorExtractor {
     constructor(settings) {
@@ -843,10 +567,15 @@
     }
 
     init() {
-      if (typeof Spicetify !== "undefined" && Spicetify.Player) {
-        Spicetify.Player.addEventListener("songchange", () => this.extractFromCurrentTrack());
-      }
-      setTimeout(() => this.extractFromCurrentTrack(), 1500);
+      const bindSongChange = () => {
+        if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.addEventListener) {
+          Spicetify.Player.addEventListener("songchange", () => this.extractFromCurrentTrack());
+          this.extractFromCurrentTrack();
+        } else {
+          setTimeout(bindSongChange, 500);
+        }
+      };
+      bindSongChange();
     }
 
     extractFromCurrentTrack() {
@@ -915,7 +644,6 @@
     if (el.style.getPropertyValue("background-color") !== "transparent") {
       el.style.setProperty("background", "transparent", "important");
       el.style.setProperty("background-color", "transparent", "important");
-      el.style.setProperty("background-image", "none", "important");
       el.style.setProperty("box-shadow", "none", "important");
     }
     if (el.style.getPropertyValue("--lyrics-color-background") && el.style.getPropertyValue("--lyrics-color-background") !== "transparent") {
@@ -927,19 +655,22 @@
   function enforceFullTransparency() {
     if (debounceTimer) clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => {
-      // 1. Clear extracted gradient overlays
       const query = `
         .main-view-container__scroll-node-child div[style*="background-color"],
         section[data-testid] div[style*="background-color"],
         header div[style*="background-color"],
         [data-testid="topbar"] div[style*="background-color"],
+        .Root__right-sidebar div[style*="background-color"],
+        aside.NowPlayingView div[style*="background-color"],
+        [data-testid="RightSidebar"] div[style*="background-color"],
+        #Desktop_LeftSidebar_Id div[style*="background-color"],
         [data-testid="lyrics-page"],
         .main-lyricsCinema-container,
         div[style*="--lyrics-color-background"]
       `;
       const candidates = document.querySelectorAll(query);
       candidates.forEach((el) => {
-        // Protect buttons, progress bars, settings modal, dialogs, menus & tooltips
+        // Protect buttons, progress bars, tooltips, menus and modal elements
         if (el.closest('[data-testid="play-button"]') ||
             el.closest('[data-testid="control-button-playpause"]') ||
             el.closest('.encore-bright-accent-set') ||
@@ -968,7 +699,6 @@
     const observer = new MutationObserver(() => enforceFullTransparency());
     observer.observe(document.body, { childList: true, subtree: true });
 
-    // Handle scroll on main container
     const tryBindScroll = () => {
       const scrollNode = document.querySelector(".main-view-container__scroll-node");
       if (scrollNode) {
@@ -987,7 +717,7 @@
     if (!document.getElementById("we-sync-container")) {
       const container = document.createElement("div");
       container.id = "we-sync-container";
-      container.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-2;overflow:hidden;";
+      container.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-3;overflow:hidden;";
 
       const img = document.createElement("img");
       img.id = "we-sync-img";
@@ -1053,7 +783,7 @@
   }
 
   /* ==========================================================================
-     7. BOOTSTRAPPER & INITIALIZATION
+     7. BOOTSTRAPPER & GUARDED INITIALIZATION
      ========================================================================== */
   function bootstrap() {
     if (!document.body) {
@@ -1072,7 +802,7 @@
       initDOMObserver();
       connectWebSocket();
       enforceFullTransparency();
-      console.log("[WE-Sync] Studio Suite v3.0.0 initialized successfully.");
+      console.log("[WE-Sync] Studio Suite v3.0.1 initialized successfully.");
     } catch (err) {
       console.error("[WE-Sync] Initialization error:", err);
     }

@@ -534,8 +534,99 @@ main:has([data-testid="lyrics-line"]) div {
 }
 
 /* ==========================================================================
-   6. THANH PHÁT NHẠC, TIẾN TRÌNH NHẠC & CAT-JAM
+   6. THANH PHÁT NHẠC (NOW PLAYING BAR) 30%-40%-30%, COVER ART & CAT-JAM
    ========================================================================== */
+.main-nowPlayingBar-container {
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: transparent !important;
+  background-color: transparent !important;
+}
+
+.main-nowPlayingBar-nowPlayingBar {
+  padding: 0 16px !important;
+  height: auto !important;
+  min-height: 72px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+}
+
+/* Khung 30% bên trái: Ảnh bìa 48px & Tên bài hát / Nghệ sĩ rõ nét */
+.main-nowPlayingBar-left {
+  flex: 0 1 30% !important;
+  min-width: 180px !important;
+  display: flex !important;
+  align-items: center !important;
+  overflow: hidden !important;
+}
+
+/* Khóa kích thước khung ảnh bìa bài hát không bị co giãn */
+.main-nowPlayingBar-left [data-testid="cover-art-image"],
+.main-nowPlayingBar-left img[data-testid="cover-art-image"],
+.main-nowPlayingBar-left .main-coverSlotCollapsed-container,
+.main-nowPlayingBar-left .main-coverSlotCollapsed-container img {
+  width: 48px !important;
+  height: 48px !important;
+  min-width: 48px !important;
+  min-height: 48px !important;
+  max-width: 48px !important;
+  max-height: 48px !important;
+  border-radius: 6px !important;
+  object-fit: cover !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Gỡ bỏ hoàn toàn mặt nạ cắt chữ (Mask Fade) để hiển thị trọn vẹn tên bài hát & nghệ sĩ */
+.main-nowPlayingBar-left .main-trackInfo-container,
+.main-nowPlayingBar-left .main-trackInfo-name,
+.main-nowPlayingBar-left .main-trackInfo-artists,
+.main-trackInfo-container,
+.main-trackInfo-name,
+.main-trackInfo-artists {
+  -webkit-mask-image: none !important;
+  mask-image: none !important;
+}
+
+.main-trackInfo-name a,
+.main-trackInfo-name span {
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  font-size: 14px !important;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9) !important;
+}
+
+.main-trackInfo-artists a,
+.main-trackInfo-artists span {
+  color: #B3B3B3 !important;
+  font-size: 12px !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8) !important;
+}
+
+.main-trackInfo-artists a:hover {
+  color: #FFFFFF !important;
+  text-decoration: underline !important;
+}
+
+/* Khung 40% ở giữa: Căn giữa thanh điều khiển & tiến trình bài hát */
+.main-nowPlayingBar-center {
+  flex: 0 1 40% !important;
+  max-width: 720px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* Khung 30% bên phải: Tích hợp âm lượng, Cat-Jam & nút điều hướng */
+.main-nowPlayingBar-right {
+  flex: 0 1 30% !important;
+  min-width: 180px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: flex-end !important;
+  gap: 6px !important;
+}
+
 #catjam-webm,
 video[id="cat"] {
   width: var(--catjam-size, 36px) !important;
@@ -584,9 +675,8 @@ video[id="cat"] {
   display: none !important;
 }
 
-.ReactModalPortal:not(:empty),
-div[data-portal-id],
-.Root__modal-slot {
+/* Modal Backdrops toàn màn hình (chỉ áp dụng cho ReactModalPortal thực thụ) */
+.ReactModalPortal:not(:empty) {
   position: fixed !important;
   inset: 0 !important;
   width: 100vw !important;
@@ -595,22 +685,36 @@ div[data-portal-id],
   pointer-events: none !important;
 }
 
-.ReactModalPortal:not(:empty) > *,
-div[data-portal-id] > *,
-.Root__modal-slot > * {
+.ReactModalPortal:not(:empty) > * {
   pointer-events: auto !important;
 }
 
-/* Tippy Container - Bảo lưu định vị Absolute/Transform gốc của Popper, không kẹp lề flex */
+/* LƯU Ý KỸ THUẬT QUAN TRỌNG: 
+   TUYỆT ĐỐI KHÔNG gán position: fixed hoặc inset: 0 cho div[data-portal-id] 
+   hoặc div[data-tippy-root] vì đây là các cổng Popper/Tippy động của Spotify.
+   Bảo lưu 100% định vị Absolute/Transform gốc của Popper để không làm văng tooltip sang lề trái! */
 div[data-tippy-root] {
   z-index: 99999 !important;
   pointer-events: none !important;
+  margin: 0 !important;
+  border: none !important;
+  background: transparent !important;
 }
 
-/* Tooltip hiển thị chú thích nút bấm - Kính mờ sang trọng, tự thu gọn, không bao giờ chặn click */
+div[data-tippy-root] * {
+  pointer-events: none !important;
+}
+
+/* Tooltip hiển thị chú thích nút bấm - Kính mờ sang trọng, tự thu gọn, XUYÊN THẤU 100% KHÔNG BAO GIỜ CHẶN CLICK */
+.main-contextMenu-tippy,
+[role="tooltip"],
+[data-tippy-root] [role="tooltip"],
+[data-tippy-root] div {
+  pointer-events: none !important;
+}
+
 .main-contextMenu-tippy,
 [role="tooltip"] {
-  pointer-events: none !important;
   background: rgba(16, 16, 22, 0.92) !important;
   backdrop-filter: blur(14px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
@@ -636,9 +740,9 @@ div[data-tippy-root] {
   width: 100vw !important;
   height: 100vh !important;
   z-index: 99999 !important;
-  background-color: rgba(0, 0, 0, 0.18) !important;
-  backdrop-filter: blur(4px) !important;
-  -webkit-backdrop-filter: blur(4px) !important;
+  background-color: rgba(0, 0, 0, 0.32) !important;
+  backdrop-filter: blur(6px) !important;
+  -webkit-backdrop-filter: blur(6px) !important;
   pointer-events: auto !important;
 }
 
@@ -647,20 +751,21 @@ div[data-tippy-root] {
 div[role="dialog"] {
   position: relative !important;
   z-index: 100000 !important;
-  background: rgba(12, 12, 16, 0.32) !important;
-  backdrop-filter: blur(14px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+  background: rgba(14, 14, 18, 0.82) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
   border-radius: 16px !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
   pointer-events: auto !important;
 }
 
-/* Đảm bảo nút đóng (X) và mọi nút bấm trong modal luôn nhận tương tác click */
+/* Đảm bảo nút đóng (X) và mọi nút bấm trong modal luôn nhận tương tác click 100% KHÔNG BỊ KẸT */
 button[aria-label="Close"],
 .main-playlistEditDetailsModal-closeBtn,
 [data-testid="playlist-edit-details-modal"] button,
-div[role="dialog"] button {
+div[role="dialog"] button,
+.GenericModal button {
   pointer-events: auto !important;
   cursor: pointer !important;
   z-index: 100001 !important;
@@ -684,7 +789,7 @@ ul[role="menu"],
 .connect-device-list-container,
 .main-connect-device-picker {
   z-index: 100000 !important;
-  background: rgba(12, 12, 16, 0.75) !important;
+  background: rgba(12, 12, 16, 0.85) !important;
   backdrop-filter: blur(18px) saturate(180%) !important;
   -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
@@ -712,21 +817,33 @@ div[role="dialog"] div:not([class*="progressBar"]),
    8. THANH BÊN PHẢI (NOW PLAYING VIEW) & LƯỚI SHORTCUT ĐẦU TRANG CHỦ
    ========================================================================== */
 .Root__right-sidebar,
+.Root__right-sidebar aside,
 aside.NowPlayingView,
+aside[aria-label="Now playing view"],
 [data-testid="RightSidebar"],
-.main-nowPlayingView-section,
+[data-testid="right-sidebar"],
+.main-nowPlayingView-container,
 .main-nowPlayingView-content,
-.main-nowPlayingView-lyricsCard,
-.main-nowPlayingView-aboutArtistCard,
-.main-nowPlayingView-credits,
-.main-nowPlayingView-queue {
+.main-nowPlayingView-coverArt,
+.main-nowPlayingView-artistBio {
   background: transparent !important;
   background-color: transparent !important;
   box-shadow: none !important;
+  border: none !important;
 }
 
+/* Biến các widget con bên cột phải (About the artist, Credits, Next in queue, Lyrics Preview) thành kính mờ tinh tế */
+.main-nowPlayingView-section,
 .main-nowPlayingView-aboutArtistCard,
-.main-nowPlayingView-lyricsCard {
+.main-nowPlayingView-aboutArtistV2,
+.main-nowPlayingView-lyricsCard,
+.main-nowPlayingView-lyricsWidget,
+.main-nowPlayingView-credits,
+.main-nowPlayingView-queue,
+[data-testid="now-playing-widget"],
+[data-testid="artist-card"],
+.Root__right-sidebar [data-encore-id="card"],
+aside.NowPlayingView [data-encore-id="card"] {
   background: rgba(16, 16, 22, 0.28) !important;
   backdrop-filter: blur(14px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
@@ -734,25 +851,37 @@ aside.NowPlayingView,
   border-radius: 12px !important;
 }
 
+/* Triệt tiêu 100% màu trích xuất đục của mini lyrics và widget con */
+.Root__right-sidebar div[style*="background-color"],
+aside.NowPlayingView div[style*="background-color"],
+.main-nowPlayingView-section div[style*="background-color"],
 .main-nowPlayingView-lyricsCard [style*="background-color"] {
   background-color: transparent !important;
 }
 
-/* Các hộp Shortcut đầu trang Home (Quick-Play) */
+/* Các hộp Shortcut đầu trang Home (Quick-Play Grid Boxes) */
 [data-testid="grid-container"] > div,
 [data-testid="fast-lane"] > div,
 .main-card-card,
-[data-encore-id="card"] {
+[data-encore-id="card"],
+.view-homeShortcutsGrid-shortcut,
+[data-testid="shortcut-item"] {
   background-color: rgba(255, 255, 255, 0.04) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
   border-radius: 8px !important;
-  transition: background-color 0.2s ease !important;
+  transition: background-color 0.2s ease, border-color 0.2s ease !important;
 }
 
 [data-testid="grid-container"] > div:hover,
 [data-testid="fast-lane"] > div:hover,
 .main-card-card:hover,
-[data-encore-id="card"]:hover {
-  background-color: rgba(255, 255, 255, 0.10) !important;
+[data-encore-id="card"]:hover,
+.view-homeShortcutsGrid-shortcut:hover,
+[data-testid="shortcut-item"]:hover {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border-color: rgba(255, 255, 255, 0.18) !important;
 }
 
 /* ==========================================================================
