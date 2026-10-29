@@ -1048,14 +1048,26 @@
      7. BOOTSTRAPPER & INITIALIZATION
      ========================================================================== */
   function bootstrap() {
-    ensureMediaContainers();
-    new WESettingsGUI(settingsManager);
-    new AudioWaveVisualizer(settingsManager);
-    new DynamicColorExtractor(settingsManager);
-    initDOMObserver();
-    connectWebSocket();
-    enforceFullTransparency();
-    console.log("[WE-Sync] Studio Suite v3.0.0 initialized successfully.");
+    if (!document.body) {
+      if (typeof window !== "undefined" && window.requestAnimationFrame) {
+        window.requestAnimationFrame(bootstrap);
+      } else {
+        setTimeout(bootstrap, 50);
+      }
+      return;
+    }
+    try {
+      ensureMediaContainers();
+      new WESettingsGUI(settingsManager);
+      new AudioWaveVisualizer(settingsManager);
+      new DynamicColorExtractor(settingsManager);
+      initDOMObserver();
+      connectWebSocket();
+      enforceFullTransparency();
+      console.log("[WE-Sync] Studio Suite v3.0.0 initialized successfully.");
+    } catch (err) {
+      console.error("[WE-Sync] Initialization error:", err);
+    }
   }
 
   if (document.readyState === "loading") {
