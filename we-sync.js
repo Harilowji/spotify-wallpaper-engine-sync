@@ -188,6 +188,14 @@
             <button class="we-tab-btn" data-tab="tab-presets"> Presets & Màu Sắc</button>
           </div>
           <div class="we-modal-body">
+          <!-- WE-SYNC CONNECTION STATUS BAR -->
+          <div class="we-conn-bar" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; margin-bottom: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 13px;">
+            <div id="we-conn-status" style="display: flex; align-items: center; gap: 8px;">
+              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff5555; box-shadow: 0 0 6px #ff5555;"></span>
+              <span style="color: #ff5555; font-weight: 600;">Chưa kết nối máy chủ (Cổng 8989)</span>
+            </div>
+            <button id="we-btn-reconnect" class="we-btn secondary" style="padding: 4px 12px; font-size: 12px; font-weight: 500; cursor: pointer; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.1); color: #fff; transition: all 0.2s ease;">Thử Kết Nối Lại</button>
+          </div>
             <!-- TAB 1: GLASS -->
             <div class="we-tab-panel active" id="tab-glass">
               <div class="we-control-group">
@@ -203,6 +211,15 @@
                   <span id="lbl-blur-val">${this.settings.config.glassBlur}px</span>
                 </div>
                 <input type="range" class="we-slider" id="rng-blur" min="0" max="30" value="${this.settings.config.glassBlur}">
+              </div>
+              <div class="we-control-group" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                  <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 4px;">Trạng Thái Đồng Bộ:</div>
+                  <div id="we-conn-status">
+                    <span style="color: #ff5555; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff5555;"></span> Đang kết nối...</span>
+                  </div>
+                </div>
+                <button class="we-btn-sm" id="we-btn-reconnect" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: all 0.2s ease;">Thử Kết Nối Lại</button>
               </div>
             </div>
 
@@ -271,6 +288,17 @@
 
     bindModalEvents(overlay) {
       overlay.querySelector("#we-modal-close-btn").addEventListener("click", () => this.closeModal());
+
+      const btnReconnect = overlay.querySelector("#we-btn-reconnect");
+      if (btnReconnect) {
+        btnReconnect.addEventListener("click", () => {
+          const statusEl = document.getElementById("we-conn-status");
+          if (statusEl) {
+            statusEl.innerHTML = '<span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #e0b020;"></span><span style="color: #e0b020; font-weight: 600;">Đang kết nối lại...</span>';
+          }
+          connectWebSocket(true);
+        });
+      }
       overlay.addEventListener("click", (e) => {
         if (e.target === overlay) this.closeModal();
       });
@@ -422,6 +450,9 @@
         this.syncUIValues();
         overlay.classList.add("active");
         this.isOpen = true;
+        if (typeof updateConnectionStatus === "function") {
+          updateConnectionStatus(activeWs && activeWs.readyState === WebSocket.OPEN);
+        }
       }
     }
 
@@ -742,44 +773,110 @@
     }
   }
 
-  function connectWebSocket() {
-    ensureMediaContainers();
-    const ws = new WebSocket(`ws://127.0.0.1:${WE_CONFIG.WS_PORT}`);
+  let currentWsHost = "127.0.0.1";
+  let activeWs = null;
+  let reconnectTimer = null;
 
-    ws.onopen = () => {
-      console.log("[WE-Sync] Connected to local Wallpaper Engine sync server.");
-    };
+  function updateConnectionStatus(isConnected) {
+    const statusEl = document.getElementById("we-conn-status");
+    if (statusEl) {
+      if (isConnected) {
+        statusEl.innerHTML = `<span style="color: #1ed760; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1ed760;box-shadow:0 0 8px #1ed760;"></span> Đã kết nối Wallpaper Engine</span>`;
+      } else {
+        statusEl.innerHTML = `<span style="color: #ff5555; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff5555;"></span> Chưa kết nối máy chủ (Cổng 8989)</span>`;
+      }
+    }
+  }
 
-    ws.onmessage = (event) => {
-      try {
-        const data = JSON.parse(event.data);
-        const img = document.getElementById("we-sync-img");
-        const video = document.getElementById("we-sync-video");
-        if (!img || !video) return;
+  function applyWallpaperMedia(data) {
+    if (!data || !data.type || !data.url) return;
+    const img = document.getElementById("we-sync-img");
+    const video = document.getElementById("we-sync-video");
+    if (!img || !video) return;
 
-        if (data.type === "video") {
-          img.style.opacity = "0";
-          video.src = data.url;
-          video.onloadeddata = () => {
-            video.style.opacity = "1";
-          };
-        } else if (data.type === "image") {
-          video.style.opacity = "0";
-          img.src = data.url;
-          img.onload = () => {
-            img.style.opacity = "1";
-          };
+    if (data.type === "video") {
+      img.style.opacity = "0";
+      if (video.src !== data.url) {
+        video.src = data.url;
+        video.onloadeddata = () => {
+          video.style.opacity = "1";
+        };
+      } else {
+        video.style.opacity = "1";
+      }
+    } else if (data.type === "image") {
+      video.style.opacity = "0";
+      if (img.src !== data.url) {
+        img.src = data.url;
+        img.onload = () => {
+          img.style.opacity = "1";
+        };
+      } else {
+        img.style.opacity = "1";
+      }
+    }
+  }
+
+  function fetchInitialWallpaper() {
+    const url = `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/status?t=${Date.now()}`;
+    fetch(url)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.mediaType && data.mediaType !== "none" && data.mediaUrl) {
+          applyWallpaperMedia({ type: data.mediaType, url: data.mediaUrl });
         }
+      })
+      .catch(() => {});
+  }
+
+  function connectWebSocket(forceReconnect = false) {
+    ensureMediaContainers();
+    if (reconnectTimer) {
+      clearTimeout(reconnectTimer);
+      reconnectTimer = null;
+    }
+
+    if (activeWs) {
+      try {
+        activeWs.onclose = null;
+        activeWs.onerror = null;
+        activeWs.close();
       } catch (e) {}
-    };
+      activeWs = null;
+    }
 
-    ws.onclose = () => {
-      setTimeout(connectWebSocket, WE_CONFIG.RECONNECT_DELAY);
-    };
+    fetchInitialWallpaper();
 
-    ws.onerror = () => {
-      ws.close();
-    };
+    try {
+      const ws = new WebSocket(`ws://${currentWsHost}:${WE_CONFIG.WS_PORT}`);
+      activeWs = ws;
+
+      ws.onopen = () => {
+        console.log(`[WE-Sync] Đã kết nối Wallpaper Engine qua ws://${currentWsHost}:${WE_CONFIG.WS_PORT}`);
+        updateConnectionStatus(true);
+      };
+
+      ws.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          applyWallpaperMedia(data);
+        } catch (e) {}
+      };
+
+      ws.onclose = () => {
+        updateConnectionStatus(false);
+        currentWsHost = currentWsHost === "127.0.0.1" ? "localhost" : "127.0.0.1";
+        reconnectTimer = setTimeout(() => connectWebSocket(), 2500);
+      };
+
+      ws.onerror = () => {
+        try { ws.close(); } catch (e) {}
+      };
+    } catch (err) {
+      updateConnectionStatus(false);
+      currentWsHost = currentWsHost === "127.0.0.1" ? "localhost" : "127.0.0.1";
+      reconnectTimer = setTimeout(() => connectWebSocket(), 2500);
+    }
   }
 
   /* ==========================================================================

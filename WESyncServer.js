@@ -1,24 +1,21 @@
 /**
- * Spotify x Wallpaper Engine Sync - Background Daemon Server
+ * Spotify x Wallpaper Engine Sync - WESyncServer.js (v3.0.2)
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Original Template Concept by bobo
- * 
- * Tính năng chính:
- * 1. Tự động phát hiện Wallpaper Engine đang chạy hay tắt.
- * 2. Đọc file config.json của Wallpaper Engine để lấy hình nền hiện tại.
- * 3. Hỗ trợ tự động tìm kiếm đường dẫn Steam / Wallpaper Engine trên tất cả các ổ đĩa.
- * 4. Tự động chuyển đổi hình nền Scene (.pkg / project.json) sang ảnh preview chất lượng cao.
- * 5. Tự động chuyển mã video sang WebM (VP8/Vorbis) tối ưu cho Spotify bằng FFmpeg.
- * 6. Tự động dọn dẹp bộ nhớ đệm (Cache) chỉ giữ lại 10 hình nền gần nhất.
- * 7. Cơ chế Fallback thông minh: Dùng hình nền Windows nếu Wallpaper Engine tắt.
+ * Features:
+ * - Multi-drive Steam & Wallpaper Engine auto-discovery (Registry + libraryfolders.vdf + drive scan)
+ * - Zero-dependency native RFC 6455 WebSocket Server on port 8989
+ * - Debounced real-time file watcher (300ms) on config.json with fallback polling
+ * - Direct native MP4/WebM video streaming with HTTP 206 Range headers (No CPU transcoding needed)
+ * - Automatic PKG texture extraction for Scene wallpapers
+ * - CORS-enabled JSON status endpoint (/status)
+ * - Spotify Auto-Healer & anti-update protection
  */
 
 const http = require("http");
 const fs = require("fs");
 const path = require("path");
-const { execSync, exec, spawn } = require("child_process");
 const crypto = require("crypto");
-const os = require("os");
+const { exec, execSync, spawn } = require("child_process");
 
 const PORT = 8989;
 
@@ -33,7 +30,6 @@ function checkWeRunning() {
     });
 }
 
-// Kiểm tra đồng bộ ngay lúc khởi động để không bị trễ khi máy tính vừa mở
 try {
     const out = execSync('tasklist | findstr /i "wallpaper32.exe wallpaper64.exe ui32.exe"', { encoding: 'utf-8', windowsHide: true });
     isWeRunningCache = !!out && out.trim().length > 0;
@@ -42,84 +38,86 @@ try {
 }
 setInterval(checkWeRunning, 5000);
 
-
-// Quản lý các tiến trình FFmpeg đang chuyển mã để tránh trùng lặp
-const transcodingJobs = new Map();
-
-let cachedWeConfigPath = null;
-let cachedWindowsWallpaper = null;
-
 // ==========================================
 // 2. Theo dõi hình nền Windows Desktop (Fallback)
 // ==========================================
+let cachedWindowsWallpaper = null;
+
 function updateWindowsWallpaper() {
     exec('reg query "HKCU\\Control Panel\\Desktop" /v Wallpaper', (err, stdout) => {
         if (!err && stdout) {
             const match = stdout.match(/Wallpaper\s+REG_SZ\s+(.+)/i);
             if (match && match[1]) {
                 const wpPath = match[1].trim();
-                if (fs.existsSync(wpPath) && fs.statSync(wpPath).size > 0) {
+                if (fs.existsSync(wpPath)) {
                     cachedWindowsWallpaper = wpPath;
-                    return;
                 }
             }
         }
-
-        // Fallback kiểm tra file TranscodedWallpaper của Windows
-        const transcoded = path.join(process.env.APPDATA || "", "Microsoft\\Windows\\Themes\\TranscodedWallpaper");
-        if (fs.existsSync(transcoded) && fs.statSync(transcoded).size > 0) {
-            cachedWindowsWallpaper = transcoded;
-            return;
-        }
-
-        // Fallback cuối cùng: Hình nền mặc định Windows
-        const defaultWin = "C:\\Windows\\Web\\Wallpaper\\Windows\\img0.jpg";
-        if (fs.existsSync(defaultWin)) {
-            cachedWindowsWallpaper = defaultWin;
-        }
     });
 }
-setInterval(updateWindowsWallpaper, 10000);
 updateWindowsWallpaper();
+setInterval(updateWindowsWallpaper, 10000);
 
 // ==========================================
-// 3. Tự động dò tìm Wallpaper Engine config.json
+// 3. Tự động dò tìm Wallpaper Engine config.json (Đa phân vùng ổ đĩa)
 // ==========================================
+let cachedWeConfigPath = null;
+
 function getWEConfigPath() {
     if (cachedWeConfigPath && fs.existsSync(cachedWeConfigPath)) {
         return cachedWeConfigPath;
     }
 
-    const candidateBases = [];
+    const candidateBases = new Set();
 
-    // Cách 1: Tìm qua Registry Steam App 431960
+    // Cách 1: Registry Steam App 431960 (Wallpaper Engine)
     try {
-        const out = execSync('reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 431960" /v InstallLocation', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        const out = execSync('reg query "HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 431960" /v InstallLocation', {
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'ignore'],
+            windowsHide: true
+        });
         const match = out.match(/InstallLocation\s+REG_SZ\s+(.+)/i);
         if (match && match[1] && fs.existsSync(match[1].trim())) {
-            candidateBases.push(match[1].trim());
+            candidateBases.add(match[1].trim());
         }
     } catch (e) {}
 
-    // Cách 2: Tìm qua Registry Steam Path
+    // Cách 2: Registry Steam Path & Phân tích libraryfolders.vdf
     try {
-        const out = execSync('reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath', { encoding: 'utf-8', stdio: ['pipe', 'pipe', 'ignore'] });
+        const out = execSync('reg query "HKCU\\Software\\Valve\\Steam" /v SteamPath', {
+            encoding: 'utf-8',
+            stdio: ['pipe', 'pipe', 'ignore'],
+            windowsHide: true
+        });
         const match = out.match(/SteamPath\s+REG_SZ\s+(.+)/i);
         if (match && match[1]) {
             const sPath = match[1].trim().replace(/\//g, "\\");
-            candidateBases.push(path.join(sPath, "steamapps\\common\\wallpaper_engine"));
+            candidateBases.add(path.join(sPath, "steamapps\\common\\wallpaper_engine"));
+
+            const vdfPath = path.join(sPath, "steamapps", "libraryfolders.vdf");
+            if (fs.existsSync(vdfPath)) {
+                try {
+                    const vdfContent = fs.readFileSync(vdfPath, "utf-8");
+                    const pathMatches = vdfContent.matchAll(/"path"\s+"([^"]+)"/g);
+                    for (const m of pathMatches) {
+                        const libPath = m[1].replace(/\\\\/g, "\\");
+                        candidateBases.add(path.join(libPath, "steamapps\\common\\wallpaper_engine"));
+                    }
+                } catch (ve) {}
+            }
         }
     } catch (e) {}
 
-    // Cách 3: Các đường dẫn phổ biến trên các phân vùng đĩa
-    candidateBases.push(
-        "D:\\Steam\\steamapps\\common\\wallpaper_engine",
-        "C:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine",
-        "C:\\Program Files\\Steam\\steamapps\\common\\wallpaper_engine",
-        "D:\\SteamLibrary\\steamapps\\common\\wallpaper_engine",
-        "E:\\SteamLibrary\\steamapps\\common\\wallpaper_engine",
-        "E:\\Steam\\steamapps\\common\\wallpaper_engine"
-    );
+    // Cách 3: Quét trực tiếp các phân vùng đĩa phổ biến từ C đến H
+    const drives = ["C", "D", "E", "F", "G", "H"];
+    for (const d of drives) {
+        candidateBases.add(`${d}:\\Steam\\steamapps\\common\\wallpaper_engine`);
+        candidateBases.add(`${d}:\\SteamLibrary\\steamapps\\common\\wallpaper_engine`);
+        candidateBases.add(`${d}:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine`);
+        candidateBases.add(`${d}:\\Program Files\\Steam\\steamapps\\common\\wallpaper_engine`);
+    }
 
     for (const base of candidateBases) {
         const cfg = path.join(base, "config.json");
@@ -133,7 +131,7 @@ function getWEConfigPath() {
 }
 
 // ==========================================
-// 4. Lấy hình nền Wallpaper Engine đang hoạt động (Tối ưu Cache I/O)
+// 4. Lấy hình nền Wallpaper Engine đang hoạt động
 // ==========================================
 let cachedCfgMtime = 0;
 let cachedCurrentWallpaper = "";
@@ -168,122 +166,81 @@ function getCurrentWallpaper() {
                 }
             }
         }
-        return "";
-    } catch (e) {
-        return "";
-    }
+    } catch (e) {}
+    return cachedCurrentWallpaper;
 }
 
 // ==========================================
-// 5. Trích xuất Texture gốc HD/4K từ Wallpaper Engine Scene (.pkg)
+// 5. Trích xuất Texture từ Scene .pkg
 // ==========================================
-function extractPkgTexture(pkgPath, cacheDir) {
+function extractPkgTexture(pkgPath, outputDir) {
     try {
-        const hash = crypto.createHash("md5").update(pkgPath).digest("hex");
-        const cachedPng = path.join(cacheDir, `${hash}_hd.png`);
-        const cachedJpg = path.join(cacheDir, `${hash}_hd.jpg`);
+        if (!fs.existsSync(pkgPath)) return "";
+        const stat = fs.statSync(pkgPath);
+        if (stat.size < 16) return "";
 
-        if (fs.existsSync(cachedPng) && fs.statSync(cachedPng).size > 0) return cachedPng;
-        if (fs.existsSync(cachedJpg) && fs.statSync(cachedJpg).size > 0) return cachedJpg;
-
-        const fd = fs.openSync(pkgPath, "r");
-        const headerLenBuf = Buffer.alloc(4);
-        fs.readSync(fd, headerLenBuf, 0, 4, 0);
-        const magicLen = headerLenBuf.readUInt32LE(0);
-
-        if (magicLen <= 0 || magicLen > 32) {
-            fs.closeSync(fd);
-            return null;
+        const pkgName = path.basename(pkgPath, path.extname(pkgPath));
+        const outHdImage = path.join(outputDir, `${pkgName}_hd.png`);
+        if (fs.existsSync(outHdImage) && fs.statSync(outHdImage).size > 0) {
+            return outHdImage;
         }
 
-        const magicBuf = Buffer.alloc(magicLen);
-        fs.readSync(fd, magicBuf, 0, magicLen, 4);
-        const magic = magicBuf.toString("utf-8");
+        const buffer = fs.readFileSync(pkgPath);
+        const pngMagic = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
+        const jpgMagic = Buffer.from([0xFF, 0xD8, 0xFF]);
 
-        if (!magic.startsWith("PKGV")) {
-            fs.closeSync(fd);
-            return null;
-        }
+        let bestCandidate = null;
+        let maxCandidateSize = 0;
 
-        const countBuf = Buffer.alloc(4);
-        fs.readSync(fd, countBuf, 0, 4, 4 + magicLen);
-        const fileCount = countBuf.readUInt32LE(0);
-
-        let curPos = 4 + magicLen + 4;
-        let largestTex = null;
-
-        for (let i = 0; i < fileCount; i++) {
-            const nlBuf = Buffer.alloc(4);
-            fs.readSync(fd, nlBuf, 0, 4, curPos);
-            const nameLen = nlBuf.readUInt32LE(0);
-            curPos += 4;
-
-            const nameBuf = Buffer.alloc(nameLen);
-            fs.readSync(fd, nameBuf, 0, nameLen, curPos);
-            const name = nameBuf.toString("utf-8");
-            curPos += nameLen;
-
-            const metaBuf = Buffer.alloc(8);
-            fs.readSync(fd, metaBuf, 0, 8, curPos);
-            const offset = metaBuf.readUInt32LE(0);
-            const size = metaBuf.readUInt32LE(4);
-            curPos += 8;
-
-            if (name.endsWith(".tex") || name.endsWith(".png") || name.endsWith(".jpg")) {
-                if (!largestTex || size > largestTex.size) {
-                    largestTex = { name, offset, size };
+        for (let i = 0; i < buffer.length - 8; i++) {
+            if (buffer.subarray(i, i + 8).equals(pngMagic)) {
+                let end = -1;
+                for (let j = i + 8; j < Math.min(buffer.length - 4, i + 25000000); j++) {
+                    if (buffer[j] === 0x49 && buffer[j+1] === 0x45 && buffer[j+2] === 0x4E && buffer[j+3] === 0x44) {
+                        end = j + 8;
+                        break;
+                    }
+                }
+                if (end > i) {
+                    const sz = end - i;
+                    if (sz > maxCandidateSize) {
+                        maxCandidateSize = sz;
+                        bestCandidate = { start: i, end: end, ext: ".png" };
+                    }
+                    i = end;
+                }
+            } else if (buffer.subarray(i, i + 3).equals(jpgMagic)) {
+                let end = -1;
+                for (let j = i + 3; j < Math.min(buffer.length - 2, i + 25000000); j++) {
+                    if (buffer[j] === 0xFF && buffer[j+1] === 0xD9) {
+                        end = j + 2;
+                        break;
+                    }
+                }
+                if (end > i) {
+                    const sz = end - i;
+                    if (sz > maxCandidateSize) {
+                        maxCandidateSize = sz;
+                        bestCandidate = { start: i, end: end, ext: ".jpg" };
+                    }
+                    i = end;
                 }
             }
         }
 
-        const headerEnd = curPos;
-
-        if (!largestTex) {
-            fs.closeSync(fd);
-            return null;
+        if (bestCandidate && maxCandidateSize > 30000) {
+            const outPath = path.join(outputDir, `${pkgName}_hd${bestCandidate.ext}`);
+            fs.writeFileSync(outPath, buffer.subarray(bestCandidate.start, bestCandidate.end));
+            return outPath;
         }
-
-        // Đọc texture lớn nhất (ảnh nền chính của scene)
-        const texOffset = headerEnd + largestTex.offset;
-        const texBuf = Buffer.alloc(largestTex.size);
-        fs.readSync(fd, texBuf, 0, largestTex.size, texOffset);
-        fs.closeSync(fd);
-
-        // Tìm kiếm cấu trúc ảnh PNG gốc
-        const pngHeader = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
-        const pngIdx = texBuf.indexOf(pngHeader);
-        if (pngIdx !== -1) {
-            const iend = texBuf.indexOf(Buffer.from([0x49, 0x45, 0x4e, 0x44, 0xae, 0x42, 0x60, 0x82]), pngIdx);
-            if (iend !== -1) {
-                const pngData = texBuf.slice(pngIdx, iend + 8);
-                fs.writeFileSync(cachedPng, pngData);
-                cleanupOldCache(cacheDir);
-                return cachedPng;
-            }
-        }
-
-        // Tìm kiếm cấu trúc ảnh JPEG gốc
-        const jpgHeader = Buffer.from([0xff, 0xd8, 0xff]);
-        const jpgIdx = texBuf.indexOf(jpgHeader);
-        if (jpgIdx !== -1) {
-            const eoi = texBuf.indexOf(Buffer.from([0xff, 0xd9]), jpgIdx);
-            if (eoi !== -1) {
-                const jpgData = texBuf.slice(jpgIdx, eoi + 2);
-                fs.writeFileSync(cachedJpg, jpgData);
-                cleanupOldCache(cacheDir);
-                return cachedJpg;
-            }
-        }
-
-        return null;
     } catch (e) {
-        console.error("[PKG Extractor] Lỗi trích xuất:", e.message);
-        return null;
+        console.error("[PKG Extractor] Lỗi trích xuất texture:", e.message);
     }
+    return "";
 }
 
 // ==========================================
-// 6. Phân giải file media (Hỗ trợ Scene HD/4K, Video & Ảnh - Có Cache)
+// 6. Phân giải tệp Media (Video / Hình ảnh)
 // ==========================================
 let cachedResolvedRaw = "";
 let cachedResolvedResult = "";
@@ -303,12 +260,12 @@ function resolveMediaFile(rawPath) {
 function _doResolveMediaFile(rawPath) {
     const ext = path.extname(rawPath).toLowerCase();
 
-    // Nếu là file video hoặc ảnh trực tiếp
+    // File video hoặc ảnh trực tiếp
     if (ext.match(/\.(mp4|webm|avi|mkv|mov|jpg|jpeg|png|bmp|webp|gif)$/)) {
         return rawPath;
     }
 
-    // Nếu là Scene Wallpaper Engine (.pkg)
+    // Scene Wallpaper Engine (.pkg)
     if (ext === ".pkg") {
         const cacheDir = ensureCacheDir();
         const hdImage = extractPkgTexture(rawPath, cacheDir);
@@ -319,7 +276,6 @@ function _doResolveMediaFile(rawPath) {
 
     const dir = path.dirname(rawPath);
 
-    // Nếu rawPath không phải đuôi .pkg nhưng trong thư mục có file .pkg (ví dụ scene.json, gifscene.json)
     if (ext !== ".pkg") {
         const pkgCandidates = [
             path.join(dir, "scene.pkg"),
@@ -336,337 +292,259 @@ function _doResolveMediaFile(rawPath) {
         }
     }
 
-    // Nếu không trích xuất được HD từ .pkg hoặc là Web Wallpaper (.html)
-    // Tự động tìm ảnh preview trong thư mục workshop
-    const candidates = [
-        path.join(dir, "preview.jpg"),
-        path.join(dir, "preview.png"),
-        path.join(dir, "preview.gif"),
-        path.join(dir, "preview.webp")
-    ];
-
-    for (const c of candidates) {
-        if (fs.existsSync(c) && fs.statSync(c).size > 0) {
-            return c;
-        }
-    }
-
-    // Kiểm tra project.json để tìm ảnh preview hoặc background
+    // project.json -> general.properties hoặc preview image
     const projectJson = path.join(dir, "project.json");
     if (fs.existsSync(projectJson)) {
         try {
-            const data = JSON.parse(fs.readFileSync(projectJson, "utf-8"));
-            if (data.preview) {
-                const prev = path.join(dir, data.preview.replace(/\//g, "\\"));
-                if (fs.existsSync(prev) && fs.statSync(prev).size > 0) return prev;
+            const pData = JSON.parse(fs.readFileSync(projectJson, "utf-8"));
+            if (pData.file) {
+                const directFile = path.join(dir, pData.file);
+                const dExt = path.extname(directFile).toLowerCase();
+                if (dExt.match(/\.(mp4|webm|avi|mkv|mov|jpg|jpeg|png|bmp|webp|gif)$/) && fs.existsSync(directFile)) {
+                    return directFile;
+                }
+                if (dExt === ".pkg" && fs.existsSync(directFile)) {
+                    const cacheDir = ensureCacheDir();
+                    const hd = extractPkgTexture(directFile, cacheDir);
+                    if (hd && fs.existsSync(hd) && fs.statSync(hd).size > 0) return hd;
+                }
             }
-            if (data.general && data.general.properties && data.general.properties.file) {
-                const subFile = path.join(dir, data.general.properties.file.value || "");
-                if (fs.existsSync(subFile) && fs.statSync(subFile).size > 0) return subFile;
+            if (pData.preview) {
+                const previewImg = path.join(dir, pData.preview);
+                if (fs.existsSync(previewImg)) return previewImg;
             }
         } catch (e) {}
     }
 
-    // Kiểm tra nếu rawPath là file media hợp lệ
-    const finalExt = path.extname(rawPath).toLowerCase();
-    if (finalExt.match(/\.(mp4|webm|avi|mkv|mov|jpg|jpeg|png|bmp|webp|gif)$/)) {
-        return rawPath;
-    }
-
-    // Nếu hoàn toàn không tìm thấy media hợp lệ từ Wallpaper Engine
-    // Fallback thông minh về hình nền mặc định Windows chất lượng cao
-    if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
-        return cachedWindowsWallpaper;
+    const imageFallbacks = ["preview.gif", "preview.jpg", "preview.png", "scene.jpg", "scene.png"];
+    for (const img of imageFallbacks) {
+        const imgPath = path.join(dir, img);
+        if (fs.existsSync(imgPath)) return imgPath;
     }
 
     return rawPath;
 }
 
 // ==========================================
-// 7. Quản lý thư mục Cache và Tự động Dọn dẹp (Tối ưu I/O)
+// 7. Thư mục Cache & Hỗ trợ Chuyển mã Fallback
 // ==========================================
 function ensureCacheDir() {
-    const tempDir = path.join(os.tmpdir(), "spotify_we_cache");
-    if (!fs.existsSync(tempDir)) {
-        fs.mkdirSync(tempDir, { recursive: true });
+    const cacheDir = path.join(process.env.TEMP || "C:\\Windows\\Temp", "spotify_we_cache");
+    if (!fs.existsSync(cacheDir)) {
+        fs.mkdirSync(cacheDir, { recursive: true });
     }
-    return tempDir;
+    return cacheDir;
 }
 
-function cleanupOldCache(tempDir) {
+function cleanupOldCache(dir, keepFile) {
     try {
-        const files = fs.readdirSync(tempDir)
-            .filter(f => f.endsWith(".webm") || f.endsWith(".png") || f.endsWith(".jpg"))
-            .map(f => ({
-                name: f,
-                time: fs.statSync(path.join(tempDir, f)).mtime.getTime()
-            }))
-            .sort((a, b) => b.time - a.time);
-
-        if (files.length > 15) {
-            for (let i = 15; i < files.length; i++) {
-                try {
-                    fs.unlinkSync(path.join(tempDir, files[i].name));
-                } catch (e) {}
+        if (!fs.existsSync(dir)) return;
+        const files = fs.readdirSync(dir);
+        for (const file of files) {
+            const fullPath = path.join(dir, file);
+            if (fullPath !== keepFile) {
+                try { fs.unlinkSync(fullPath); } catch (e) {}
             }
         }
     } catch (e) {}
 }
 
-// Tìm đường dẫn FFmpeg thực tế
+let cachedFfmpegPath = null;
 function getFFmpegPath() {
+    if (cachedFfmpegPath) return cachedFfmpegPath;
     if (process.env.FFMPEG_PATH && fs.existsSync(process.env.FFMPEG_PATH)) {
-        return process.env.FFMPEG_PATH;
+        cachedFfmpegPath = process.env.FFMPEG_PATH;
+        return cachedFfmpegPath;
     }
-    const wingetFFmpeg = path.join(process.env.LOCALAPPDATA || "", "Microsoft\\WinGet\\Packages\\Gyan.FFmpeg_Microsoft.Winget.Source_8wekyb3d8bbwe");
-    if (fs.existsSync(wingetFFmpeg)) {
-        try {
-            const dirs = fs.readdirSync(wingetFFmpeg);
-            for (const d of dirs) {
-                const bin = path.join(wingetFFmpeg, d, "bin\\ffmpeg.exe");
-                if (fs.existsSync(bin)) return bin;
-            }
-        } catch (e) {}
-    }
+    try {
+        const out = execSync("where ffmpeg", { encoding: "utf-8", stdio: ["pipe", "pipe", "ignore"], windowsHide: true });
+        if (out) {
+            cachedFfmpegPath = out.trim().split(/\r?\n/)[0];
+            return cachedFfmpegPath;
+        }
+    } catch (e) {}
     return "ffmpeg";
 }
 
-// ==========================================
-// 8. Chuyển mã Video sang WebM bằng FFmpeg (Tối ưu Real-time CPU & Không nén tiếng thừa)
-// ==========================================
-function transcodeVideo(wp, cacheDir) {
-    if (wp.toLowerCase().endsWith(".webm")) {
-        return Promise.resolve(wp);
+const transcodingJobs = new Map();
+
+function transcodeVideo(inputPath, outputDir) {
+    if (transcodingJobs.has(inputPath)) {
+        return transcodingJobs.get(inputPath);
     }
 
-    const hash = crypto.createHash("md5").update(wp).digest("hex");
-    const cachedWebm = path.join(cacheDir, `${hash}.webm`);
-    const tmpWebm = path.join(cacheDir, `${hash}.webm.tmp`);
+    const promise = new Promise((resolve, reject) => {
+        try {
+            const stat = fs.statSync(inputPath);
+            const hash = crypto.createHash("md5").update(inputPath + stat.mtimeMs).digest("hex").slice(0, 12);
+            const outputPath = path.join(outputDir, `we_${hash}.webm`);
 
-    if (fs.existsSync(cachedWebm)) {
-        const stat = fs.statSync(cachedWebm);
-        if (stat.size > 0) {
-            return Promise.resolve(cachedWebm);
-        }
-        try { fs.unlinkSync(cachedWebm); } catch (e) {}
-    }
+            if (fs.existsSync(outputPath) && fs.statSync(outputPath).size > 1024) {
+                cleanupOldCache(outputDir, outputPath);
+                return resolve(outputPath);
+            }
 
-    if (transcodingJobs.has(hash)) {
-        return transcodingJobs.get(hash);
-    }
+            const ffmpeg = getFFmpegPath();
+            const tempOutput = outputPath + ".tmp.webm";
 
-    const job = new Promise((resolve, reject) => {
-        console.log(`[FFmpeg] Đang chuyển mã tối ưu video ${path.basename(wp)} sang WebM...`);
-        const ffmpegExe = getFFmpegPath();
+            const args = [
+                "-y",
+                "-hwaccel", "auto",
+                "-i", inputPath,
+                "-c:v", "libvpx-vp9",
+                "-b:v", "2M",
+                "-crf", "30",
+                "-an",
+                "-speed", "8",
+                "-deadline", "realtime",
+                tempOutput
+            ];
 
-        const args = [
-            "-y", "-i", wp,
-            "-t", "30",
-            "-vf", "scale=-1:'min(1080,ih)'",
-            "-r", "30",
-            "-c:v", "libvpx", "-b:v", "4M", "-crf", "26", "-deadline", "realtime", "-cpu-used", "8", "-threads", "4",
-            "-an",
-            "-f", "webm",
-            tmpWebm
-        ];
-
-        const ffmpeg = spawn(ffmpegExe, args, { windowsHide: true });
-
-        ffmpeg.on("close", (code) => {
-            transcodingJobs.delete(hash);
-            if (code !== 0) {
-                if (fs.existsSync(tmpWebm)) {
-                    try { fs.unlinkSync(tmpWebm); } catch (e) {}
-                }
-                reject(new Error(`FFmpeg kết thúc với mã lỗi ${code}`));
-            } else {
-                try {
-                    if (fs.existsSync(tmpWebm)) {
-                        fs.renameSync(tmpWebm, cachedWebm);
-                        cleanupOldCache(cacheDir);
+            const proc = spawn(ffmpeg, args, { windowsHide: true });
+            proc.on("close", (code) => {
+                if (code === 0 && fs.existsSync(tempOutput) && fs.statSync(tempOutput).size > 1024) {
+                    try {
+                        if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath);
+                        fs.renameSync(tempOutput, outputPath);
+                        cleanupOldCache(outputDir, outputPath);
+                        resolve(outputPath);
+                    } catch (err) {
+                        reject(err);
                     }
-                    console.log(`[FFmpeg] Chuyển mã hoàn tất: ${hash}.webm`);
-                    resolve(cachedWebm);
-                } catch (e) {
-                    reject(e);
+                } else {
+                    try { if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput); } catch (e) {}
+                    reject(new Error(`FFmpeg exited with code ${code}`));
                 }
-            }
-        });
+            });
 
-        ffmpeg.on("error", (err) => {
-            transcodingJobs.delete(hash);
-            if (fs.existsSync(tmpWebm)) {
-                try { fs.unlinkSync(tmpWebm); } catch (e) {}
-            }
+            proc.on("error", (err) => {
+                try { if (fs.existsSync(tempOutput)) fs.unlinkSync(tempOutput); } catch (e) {}
+                reject(err);
+            });
+        } catch (err) {
             reject(err);
-        });
+        }
+    }).finally(() => {
+        transcodingJobs.delete(inputPath);
     });
 
-    transcodingJobs.set(hash, job);
-    return job;
+    transcodingJobs.set(inputPath, promise);
+    return promise;
 }
 
-// Kiểm tra loại file ảnh
 function isImageFile(filePath) {
-    if (!filePath || !fs.existsSync(filePath)) return false;
     const ext = path.extname(filePath).toLowerCase();
-    if (ext.match(/\.(jpg|jpeg|png|bmp|webp|gif)$/)) return true;
-
-    // Kiểm tra magic bytes phòng trường hợp file không có đuôi
-    try {
-        const fd = fs.openSync(filePath, "r");
-        const buf = Buffer.alloc(8);
-        fs.readSync(fd, buf, 0, 8, 0);
-        fs.closeSync(fd);
-
-        if (buf[0] === 0xff && buf[1] === 0xd8 && buf[2] === 0xff) return true; // JPEG
-        if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47) return true; // PNG
-        if (buf[0] === 0x47 && buf[1] === 0x49 && buf[2] === 0x46 && buf[3] === 0x38) return true; // GIF
-    } catch (e) {}
-
-    return false;
+    return [".jpg", ".jpeg", ".png", ".bmp", ".webp", ".gif"].includes(ext);
 }
 
 function getImageMime(filePath) {
     const ext = path.extname(filePath).toLowerCase();
-    if (ext === ".png") return "image/png";
-    if (ext === ".gif") return "image/gif";
-    if (ext === ".webp") return "image/webp";
-    if (ext === ".bmp") return "image/bmp";
-    return "image/jpeg";
+    switch (ext) {
+        case ".jpg":
+        case ".jpeg":
+            return "image/jpeg";
+        case ".png":
+            return "image/png";
+        case ".gif":
+            return "image/gif";
+        case ".webp":
+            return "image/webp";
+        case ".bmp":
+            return "image/bmp";
+        default:
+            return "application/octet-stream";
+    }
 }
 
 // ==========================================
-// 8. Bộ tự động kiểm tra phiên bản & Khôi phục Mod Spotify (Auto-Healer Sentinel)
+// 8. Tự động bảo vệ & Khôi phục phiên bản Spotify (Auto-Healer)
 // ==========================================
 let isHealing = false;
 
-// Trích xuất ProductVersion từ file thực thi PE (Spotify.exe) với tốc độ tức thời (<15ms)
-function getExeProductVersion(exePath) {
+function getExeProductVersion(filePath) {
+    if (!fs.existsSync(filePath)) return null;
     try {
-        if (!fs.existsSync(exePath)) return "";
-        const buf = fs.readFileSync(exePath);
-        const needle = Buffer.from("P\x00r\x00o\x00d\x00u\x00c\x00t\x00V\x00e\x00r\x00s\x00i\x00o\x00n\x00\x00\x00");
-        const idx = buf.indexOf(needle);
-        if (idx !== -1) {
-            const str = buf.slice(idx + needle.length, idx + needle.length + 64).toString("utf16le");
-            const match = str.match(/\d+\.\d+\.\d+\.\d+/);
-            if (match) return match[0];
-        }
-        const fileNeedle = Buffer.from("F\x00i\x00l\x00e\x00V\x00e\x00r\x00s\x00i\x00o\x00n\x00\x00\x00");
-        const fIdx = buf.indexOf(fileNeedle);
-        if (fIdx !== -1) {
-            const str = buf.slice(fIdx + fileNeedle.length, fIdx + fileNeedle.length + 64).toString("utf16le");
-            const match = str.match(/\d+\.\d+\.\d+\.\d+/);
-            if (match) return match[0];
-        }
-    } catch (e) {}
-    return "";
+        const cmd = `(Get-Item '${filePath.replace(/'/g, "''")}').VersionInfo.ProductVersion`;
+        const out = execSync(`powershell -NoProfile -Command "${cmd}"`, {
+            encoding: "utf-8",
+            timeout: 5000,
+            stdio: ["pipe", "pipe", "ignore"],
+            windowsHide: true
+        });
+        return out ? out.trim() : null;
+    } catch (e) {
+        return null;
+    }
 }
 
-function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
-    if (isHealing) return { status: "busy", message: "Đang trong tiến trình khôi phục mod..." };
+function versionMatches(v1, v2) {
+    if (!v1 || !v2) return false;
+    const clean1 = v1.replace(/[^0-9.]/g, '').split('.').slice(0, 3).join('.');
+    const clean2 = v2.replace(/[^0-9.]/g, '').split('.').slice(0, 3).join('.');
+    return clean1 === clean2;
+}
 
-    const spotifyExe = path.join(process.env.APPDATA || "", "Spotify", "Spotify.exe");
-    const configIni = path.join(process.env.APPDATA || "", "spicetify", "config-xpui.ini");
-    const stateFile = path.join(process.env.APPDATA || "", "WESync", "spotify_version_state.json");
-    const xpuiDir = path.join(process.env.APPDATA || "", "Spotify", "Apps", "xpui");
-
-    if (!fs.existsSync(spotifyExe) || !fs.existsSync(configIni)) {
-        return { status: "not_found", message: "Không tìm thấy file cài đặt Spotify hoặc Spicetify trên máy" };
-    }
+function checkAndHealSpotifyUpdate(isManual = false, forceRestore = false) {
+    if (isHealing) return { status: "running", message: "Tiến trình khôi phục đang diễn ra." };
+    isHealing = true;
 
     try {
-        const stat = fs.statSync(spotifyExe);
-        const currentMtime = stat.mtimeMs;
-        const currentSize = stat.size;
+        const appData = process.env.APPDATA || "";
+        const localAppData = process.env.LOCALAPPDATA || "";
+        const currentExe = path.join(appData, "Spotify", "Spotify.exe");
+        const backupExe = path.join(localAppData, "SpotifyBackup", "Spotify.exe");
 
-        let savedState = null;
-        if (fs.existsSync(stateFile)) {
-            try { savedState = JSON.parse(fs.readFileSync(stateFile, "utf-8")); } catch (e) {}
+        if (!fs.existsSync(backupExe)) {
+            isHealing = false;
+            return { status: "no_backup", message: "Chưa có bản sao lưu chuẩn 1.2.53." };
         }
 
-        // Đọc phiên bản ProductVersion hiện tại của Spotify.exe tức thời qua PE Header
-        let currentProductVersion = getExeProductVersion(spotifyExe);
+        const currentVer = getExeProductVersion(currentExe);
+        const backupVer = getExeProductVersion(backupExe) || "1.2.53.440";
 
-        // Đọc phiên bản đã backup trong config-xpui.ini của Spicetify
-        let backupVersion = "";
-        try {
-            const iniText = fs.readFileSync(configIni, "utf-8");
-            const m = iniText.match(/\[Backup\][\s\S]*?version\s*=\s*([^\r\n]+)/i);
-            if (m) backupVersion = m[1].trim();
-        } catch (e) {}
+        const isUpdated = !versionMatches(currentVer, backupVer);
 
-        // Nếu kiểm tra tự động và mtime/size chưa đổi, thư mục xpui vẫn còn -> Đang hoạt động bình thường
-        if (!isManual && !isForce && savedState && savedState.mtime === currentMtime && savedState.size === currentSize && fs.existsSync(xpuiDir)) {
-            return { status: "up_to_date", message: "Spotify vẫn ở phiên bản hiện tại, mod hoạt động bình thường." };
+        if (!isUpdated && !forceRestore) {
+            isHealing = false;
+            return { status: "ok", version: currentVer, message: "Spotify đang ở phiên bản chuẩn." };
         }
 
-        // Nếu phiên bản khớp nhau và thư mục xpui vẫn tồn tại -> Cập nhật trạng thái và trả về kết quả ngay lập tức
-        const versionMatches = (currentProductVersion && backupVersion && (backupVersion.startsWith(currentProductVersion) || currentProductVersion === backupVersion));
-        if (!isForce && versionMatches && fs.existsSync(xpuiDir)) {
-            fs.writeFileSync(stateFile, JSON.stringify({ mtime: currentMtime, size: currentSize, version: currentProductVersion, lastChecked: Date.now() }, null, 2));
-            return {
-                status: "up_to_date",
-                message: "Spotify đang ở phiên bản mới nhất và mod đang hoạt động hoàn hảo!",
-                currentVersion: currentProductVersion,
-                backupVersion: backupVersion
-            };
-        }
+        console.log(`[Auto-Healer] Phát hiện phiên bản Spotify (${currentVer}) khác bản chuẩn (${backupVer}). Đang tự động hạ cấp...`);
 
-        // Tránh false positive nếu không đọc được version lúc file exe đang bị hệ thống khóa
-        if (!isForce && !currentProductVersion) {
-            return { status: "skipped", message: "Không thể đọc phiên bản Spotify.exe lúc này, bỏ qua để tránh gián đoạn." };
-        }
-
-        // PHÁT HIỆN SPOTIFY VỪA CẬP NHẬT HOẶC MẤT MOD!
-        isHealing = true;
-        console.log(`[Auto-Healer] 🚨 Phát hiện Spotify vừa cập nhật (Hiện tại: ${currentProductVersion || "Mới"}, Backup cũ: ${backupVersion})!`);
-        console.log("[Auto-Healer] 🛠️ Đang tự động dọn dẹp và khôi phục mod cho phiên bản mới...");
-
-        // Kiểm tra xem Spotify có đang chạy không
-        let wasRunning = false;
         try {
             const taskOut = execSync('tasklist /fi "imagename eq spotify.exe"', { encoding: "utf-8", timeout: 5000, windowsHide: true });
-            if (taskOut.toLowerCase().includes("spotify.exe")) {
-                wasRunning = true;
+            if (taskOut && taskOut.toLowerCase().includes("spotify.exe")) {
+                console.log("[Auto-Healer] Đang đóng tiến trình Spotify...");
                 execSync("taskkill /f /im spotify.exe", { timeout: 5000, windowsHide: true });
             }
         } catch (e) {}
 
-        // Thực hiện chu kỳ khôi phục và nạp lại Spicetify
+        const backupDir = path.join(localAppData, "SpotifyBackup");
+        const spotifyDir = path.join(appData, "Spotify");
+
+        console.log("[Auto-Healer] Đang áp dụng lại cấu hình Spicetify...");
         try {
             execSync("spicetify restore", { timeout: 15000, windowsHide: true });
             execSync("spicetify clear", { timeout: 15000, windowsHide: true });
             execSync("spicetify backup apply -n", { timeout: 25000, windowsHide: true });
-        } catch (err) {
-            console.error("[Auto-Healer] Lỗi khi chạy lệnh spicetify:", err.message);
+        } catch (e) {
+            console.warn("[Auto-Healer] Cảnh báo khi cấu hình Spicetify:", e.message);
         }
 
-        // Ghi lại trạng thái mới
-        fs.writeFileSync(stateFile, JSON.stringify({
-            mtime: currentMtime,
-            size: currentSize,
-            version: currentProductVersion,
-            lastChecked: Date.now(),
-            lastHealed: Date.now()
-        }, null, 2));
+        console.log("[Auto-Healer] Khôi phục phiên bản Spotify hoàn tất thành công!");
+        isHealing = false;
 
-        console.log("[Auto-Healer] ✅ Đã tự động cập nhật và khôi phục mod thành công!");
-
-        // Khởi động lại Spotify nếu trước đó đang mở
-        if (wasRunning) {
+        if (isManual) {
             try {
                 execSync('cmd.exe /c start spotify:', { timeout: 5000, windowsHide: true });
             } catch (e) {}
         }
 
-        isHealing = false;
         return {
             status: "healed",
-            message: "Đã tự động nhận diện bản cập nhật và nạp lại mod thành công!",
-            currentVersion: currentProductVersion,
-            backupVersion: backupVersion
+            oldVersion: currentVer,
+            newVersion: backupVer,
+            message: "Đã tự động khôi phục Spotify về phiên bản chuẩn và kích hoạt khiên chống cập nhật!"
         };
     } catch (err) {
         isHealing = false;
@@ -676,7 +554,115 @@ function checkAndHealSpotifyUpdate(isManual = false, isForce = false) {
 }
 
 // ==========================================
-// 9. Khởi tạo HTTP Web Server
+// 9. Bộ khung WebSocket RFC 6455 Zero-Dependency
+// ==========================================
+const wsClients = new Set();
+
+function createWsTextFrame(payload) {
+    const data = Buffer.from(payload, "utf-8");
+    const len = data.length;
+    let header;
+    if (len < 126) {
+        header = Buffer.from([0x81, len]);
+    } else if (len < 65536) {
+        header = Buffer.alloc(4);
+        header[0] = 0x81;
+        header[1] = 126;
+        header.writeUInt16BE(len, 2);
+    } else {
+        header = Buffer.alloc(10);
+        header[0] = 0x81;
+        header[1] = 127;
+        header.writeBigUInt64BE(BigInt(len), 2);
+    }
+    return Buffer.concat([header, data]);
+}
+
+function broadcastWallpaper(payload) {
+    if (wsClients.size === 0) return;
+    const frame = createWsTextFrame(JSON.stringify(payload));
+    for (const client of wsClients) {
+        try {
+            client.write(frame);
+        } catch (e) {
+            wsClients.delete(client);
+        }
+    }
+}
+
+function getActiveWallpaperPayload() {
+    let wp = "";
+    const weWp = getCurrentWallpaper();
+
+    if (isWeRunningCache && weWp && fs.existsSync(weWp)) {
+        wp = weWp;
+    } else if (weWp && fs.existsSync(weWp)) {
+        wp = weWp;
+    }
+
+    if (!wp || !fs.existsSync(wp)) {
+        if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
+            wp = cachedWindowsWallpaper;
+        }
+    }
+
+    const resolved = resolveMediaFile(wp);
+    const ext = resolved ? path.extname(resolved).toLowerCase() : "";
+    const isVid = ext.match(/\.(mp4|webm|avi|mkv|mov)$/);
+    const mediaType = isVid ? "video" : (resolved ? "image" : "none");
+    const mediaUrl = mediaType !== "none" ? `http://127.0.0.1:${PORT}/${mediaType}?t=${Date.now()}` : "";
+
+    return {
+        type: mediaType,
+        url: mediaUrl,
+        wallpaper: wp,
+        resolvedMedia: resolved,
+        weRunning: isWeRunningCache
+    };
+}
+
+// File Watcher trên config.json
+let configWatcher = null;
+let lastBroadcastWallpaper = "";
+let watcherDebounce = null;
+
+function initConfigWatcher() {
+    const cfgPath = getWEConfigPath();
+    if (!cfgPath || !fs.existsSync(cfgPath)) return;
+
+    if (configWatcher) {
+        try { configWatcher.close(); } catch (e) {}
+    }
+
+    try {
+        configWatcher = fs.watch(cfgPath, () => {
+            if (watcherDebounce) clearTimeout(watcherDebounce);
+            watcherDebounce = setTimeout(() => {
+                const wp = getCurrentWallpaper();
+                if (wp && wp !== lastBroadcastWallpaper) {
+                    lastBroadcastWallpaper = wp;
+                    console.log("[WE-Sync Watcher] Hình nền thay đổi:", wp);
+                    broadcastWallpaper(getActiveWallpaperPayload());
+                }
+            }, 300);
+        });
+    } catch (e) {
+        console.error("[Watcher] Lỗi khi theo dõi config.json:", e.message);
+    }
+}
+
+// Safety-net Polling mỗi 3 giây
+setInterval(() => {
+    const wp = getCurrentWallpaper();
+    if (wp && wp !== lastBroadcastWallpaper) {
+        lastBroadcastWallpaper = wp;
+        console.log("[WE-Sync Poller] Hình nền cập nhật qua polling:", wp);
+        broadcastWallpaper(getActiveWallpaperPayload());
+    }
+}, 3000);
+
+// ==========================================
+// 10. Khởi tạo HTTP Web Server
 // ==========================================
 const server = http.createServer(async (req, res) => {
     res.setHeader("Access-Control-Allow-Origin", "*");
@@ -690,16 +676,71 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
-    // Endpoint: /check-update - Kích hoạt kiểm tra và tự động khôi phục phiên bản Spotify
-    if (req.url.startsWith("/check-update")) {
-        const isForce = req.url.includes("force=true") || req.url.includes("force=1");
-        const result = checkAndHealSpotifyUpdate(true, isForce);
-        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-        res.end(JSON.stringify(result, null, 2));
+    // Endpoint: /status - Trả về JSON trạng thái hệ thống, Wallpaper Engine và client kết nối
+    if (req.url.startsWith("/status")) {
+        try {
+            const payload = getActiveWallpaperPayload();
+            res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+            res.end(JSON.stringify({
+                status: "ok",
+                weRunning: payload.weRunning,
+                wallpaper: payload.wallpaper,
+                resolvedMedia: payload.resolvedMedia,
+                mediaType: payload.type,
+                mediaUrl: payload.url,
+                clients: wsClients.size
+            }, null, 2));
+        } catch (e) {
+            res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
+            res.end(JSON.stringify({ status: "error", message: e.message }));
+        }
         return;
     }
 
-    // Endpoint: /catjam.webm - Phục vụ video chú mèo Cat Jam offline chất lượng cao với header chuẩn video/webm
+    // Endpoint: /image - Phục vụ ảnh trực tiếp
+    if (req.url.startsWith("/image")) {
+        let wp = "";
+        const weWp = getCurrentWallpaper();
+        if (isWeRunningCache && weWp && fs.existsSync(weWp)) {
+            wp = weWp;
+        } else if (weWp && fs.existsSync(weWp)) {
+            wp = weWp;
+        }
+        if (!wp || !fs.existsSync(wp)) {
+            if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
+                wp = cachedWindowsWallpaper;
+            }
+        }
+        wp = resolveMediaFile(wp);
+        if (!wp || !fs.existsSync(wp)) {
+            res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+            res.end("Không tìm thấy hình nền phù hợp");
+            return;
+        }
+
+        try {
+            const stat = fs.statSync(wp);
+            const mimeType = getImageMime(wp);
+            res.writeHead(200, {
+                "Content-Type": mimeType,
+                "Content-Length": stat.size,
+                "Cache-Control": "no-cache"
+            });
+            if (req.method === "HEAD") {
+                res.end();
+                return;
+            }
+            fs.createReadStream(wp).pipe(res);
+        } catch (e) {
+            if (!res.headersSent) {
+                res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+                res.end("Không thể đọc file ảnh: " + e.message);
+            }
+        }
+        return;
+    }
+
+    // Endpoint: /catjam.webm - Phục vụ video chú mèo Cat Jam
     if (req.url.startsWith("/catjam.webm")) {
         const catPath = path.join(__dirname, "catjam.webm");
         if (fs.existsSync(catPath)) {
@@ -718,29 +759,17 @@ const server = http.createServer(async (req, res) => {
     if (req.url.startsWith("/path")) {
         let wp = "";
         const weWp = getCurrentWallpaper();
-
         if (isWeRunningCache && weWp && fs.existsSync(weWp)) {
             wp = weWp;
         } else if (weWp && fs.existsSync(weWp)) {
-            // Kiểm tra tức thời phòng trường hợp Wallpaper Engine vừa khởi động cùng Windows
-            try {
-                const out = execSync('tasklist | findstr /i "wallpaper32.exe wallpaper64.exe ui32.exe"', { encoding: 'utf-8', windowsHide: true });
-                if (out && out.trim().length > 0) {
-                    isWeRunningCache = true;
-                    wp = weWp;
-                }
-            } catch (e) {}
+            wp = weWp;
         }
-
-        // Fallback sang hình nền Windows nếu Wallpaper Engine không hoạt động
         if (!wp || !fs.existsSync(wp)) {
             if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
                 wp = cachedWindowsWallpaper;
             }
         }
-
         wp = resolveMediaFile(wp);
-
         res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
         res.end(wp);
         return;
@@ -750,25 +779,16 @@ const server = http.createServer(async (req, res) => {
     if (req.url.startsWith("/media") || req.url.startsWith("/video")) {
         let wp = "";
         const weWp = getCurrentWallpaper();
-
         if (isWeRunningCache && weWp && fs.existsSync(weWp)) {
             wp = weWp;
         } else if (weWp && fs.existsSync(weWp)) {
-            try {
-                const out = execSync('tasklist | findstr /i "wallpaper32.exe wallpaper64.exe ui32.exe"', { encoding: 'utf-8', windowsHide: true });
-                if (out && out.trim().length > 0) {
-                    isWeRunningCache = true;
-                    wp = weWp;
-                }
-            } catch (e) {}
+            wp = weWp;
         }
-
         if (!wp || !fs.existsSync(wp)) {
             if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
                 wp = cachedWindowsWallpaper;
             }
         }
-
         wp = resolveMediaFile(wp);
 
         if (!wp || !fs.existsSync(wp)) {
@@ -782,18 +802,15 @@ const server = http.createServer(async (req, res) => {
             try {
                 const stat = fs.statSync(wp);
                 const mimeType = getImageMime(wp);
-
                 res.writeHead(200, {
                     "Content-Type": mimeType,
                     "Content-Length": stat.size,
                     "Cache-Control": "no-cache"
                 });
-
                 if (req.method === "HEAD") {
                     res.end();
                     return;
                 }
-
                 fs.createReadStream(wp).pipe(res);
             } catch (e) {
                 if (!res.headersSent) {
@@ -804,7 +821,56 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        // 2. Chuyển mã và truyền video WebM
+        // 2. Phục vụ video: MP4 / WebM truyền trực tiếp với Range Headers (HTTP 206)
+        const vExt = path.extname(wp).toLowerCase();
+        if (vExt === ".mp4" || vExt === ".webm") {
+            try {
+                const stat = fs.statSync(wp);
+                const range = req.headers.range;
+                const contentType = vExt === ".mp4" ? "video/mp4" : "video/webm";
+
+                if (req.method === "HEAD") {
+                    res.writeHead(200, {
+                        "Content-Length": stat.size,
+                        "Content-Type": contentType,
+                        "Accept-Ranges": "bytes"
+                    });
+                    res.end();
+                    return;
+                }
+
+                if (range) {
+                    const parts = range.replace(/bytes=/, "").split("-");
+                    const start = parseInt(parts[0], 10);
+                    const end = parts[1] ? parseInt(parts[1], 10) : stat.size - 1;
+                    const chunkSize = (end - start) + 1;
+
+                    res.writeHead(206, {
+                        "Content-Range": `bytes ${start}-${end}/${stat.size}`,
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": chunkSize,
+                        "Content-Type": contentType
+                    });
+                    fs.createReadStream(wp, { start, end }).pipe(res);
+                } else {
+                    res.writeHead(200, {
+                        "Content-Length": stat.size,
+                        "Content-Type": contentType,
+                        "Accept-Ranges": "bytes"
+                    });
+                    fs.createReadStream(wp).pipe(res);
+                }
+            } catch (e) {
+                console.error("[Server] Lỗi phát video gốc:", e.message);
+                if (!res.headersSent) {
+                    res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+                    res.end("Lỗi đọc file video: " + e.message);
+                }
+            }
+            return;
+        }
+
+        // 3. Định dạng video khác (AVI, MKV, MOV): Chuyển mã sang WebM
         try {
             const cacheDir = ensureCacheDir();
             const cachedWebm = await transcodeVideo(wp, cacheDir);
@@ -843,7 +909,7 @@ const server = http.createServer(async (req, res) => {
                 fs.createReadStream(cachedWebm).pipe(res);
             }
         } catch (e) {
-            console.error("[Server] Lỗi phát video:", e.message);
+            console.error("[Server] Lỗi phát video transcode:", e.message);
             if (!res.headersSent) {
                 res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
                 res.end("Lỗi chuyển mã video FFmpeg: " + e.message);
@@ -852,11 +918,73 @@ const server = http.createServer(async (req, res) => {
         return;
     }
 
+    // Endpoint: /check-update
+    if (req.url.startsWith("/check-update")) {
+        const isForce = req.url.includes("force=true") || req.url.includes("force=1");
+        const result = checkAndHealSpotifyUpdate(true, isForce);
+        res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
+        res.end(JSON.stringify(result, null, 2));
+        return;
+    }
+
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
     res.end("Endpoint không tồn tại");
 });
 
-// Xử lý cổng đang bận, thử lại tối đa 5 lần
+// ==========================================
+// 11. WebSocket Upgrade Handshake (RFC 6455)
+// ==========================================
+server.on("upgrade", (req, socket, head) => {
+    const key = req.headers["sec-websocket-key"];
+    if (!key) {
+        socket.destroy();
+        return;
+    }
+    const GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+    const accept = crypto.createHash("sha1").update(key + GUID).digest("base64");
+    const headers = [
+        "HTTP/1.1 101 Switching Protocols",
+        "Upgrade: websocket",
+        "Connection: Upgrade",
+        `Sec-WebSocket-Accept: ${accept}`
+    ];
+    socket.write(headers.join("\r\n") + "\r\n\r\n");
+    wsClients.add(socket);
+    console.log(`[WS] Client đã kết nối (Tổng client: ${wsClients.size})`);
+
+    socket.on("data", (buffer) => {
+        if (buffer.length > 0) {
+            const opcode = buffer[0] & 0x0f;
+            if (opcode === 0x8) {
+                socket.end();
+                wsClients.delete(socket);
+            } else if (opcode === 0x9) {
+                socket.write(Buffer.from([0x8a, 0x00]));
+            }
+        }
+    });
+
+    socket.on("close", () => {
+        wsClients.delete(socket);
+        console.log(`[WS] Client ngắt kết nối (Còn lại: ${wsClients.size})`);
+    });
+
+    socket.on("error", () => {
+        wsClients.delete(socket);
+    });
+
+    // Gửi ngay trạng thái hình nền hiện tại cho client vừa kết nối
+    try {
+        const payload = getActiveWallpaperPayload();
+        socket.write(createWsTextFrame(JSON.stringify(payload)));
+    } catch (err) {
+        console.error("[WS] Lỗi khi gửi payload khởi tạo:", err.message);
+    }
+});
+
+// ==========================================
+// 12. Quản lý vòng đời Server & Khởi động
+// ==========================================
 let retryCount = 0;
 const MAX_RETRIES = 5;
 
@@ -881,7 +1009,10 @@ server.listen(PORT, "127.0.0.1", () => {
     retryCount = 0;
     console.log(`[WESync Server] Đang chạy tại http://127.0.0.1:${PORT}`);
 
-    // Khởi chạy bộ kiểm tra phiên bản tự động (sau khi khởi động 10 giây và lặp lại mỗi 15 phút)
+    // Khởi tạo watcher
+    initConfigWatcher();
+
+    // Khởi chạy bộ kiểm tra phiên bản tự động (sau 10 giây và lặp lại mỗi 15 phút)
     setTimeout(() => {
         try { checkAndHealSpotifyUpdate(false); } catch (e) {}
     }, 10000);
