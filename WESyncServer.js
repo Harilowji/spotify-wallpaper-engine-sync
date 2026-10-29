@@ -821,13 +821,15 @@ const server = http.createServer(async (req, res) => {
             return;
         }
 
-        // 2. Phục vụ video: MP4 / WebM truyền trực tiếp với Range Headers (HTTP 206)
+        // 2. Phục vụ video WebM truyền trực tiếp với Range Headers (HTTP 206)
+        // Lưu ý: Spotify CEF không có sẵn bộ giải mã H.264 (avc1), chỉ hỗ trợ WebM (VP8/VP9).
+        // Do đó chỉ file .webm mới truyền trực tiếp; file .mp4 sẽ được chuyển mã tự động sang WebM VP9 bên dưới.
         const vExt = path.extname(wp).toLowerCase();
-        if (vExt === ".mp4" || vExt === ".webm") {
+        if (vExt === ".webm") {
             try {
                 const stat = fs.statSync(wp);
                 const range = req.headers.range;
-                const contentType = vExt === ".mp4" ? "video/mp4" : "video/webm";
+                const contentType = "video/webm";
 
                 if (req.method === "HEAD") {
                     res.writeHead(200, {

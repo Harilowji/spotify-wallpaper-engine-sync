@@ -1,5 +1,5 @@
 /**
- * Spotify x Wallpaper Engine Sync - Studio Suite v3.0.1 (Comprehensive Bugfix)
+ * Spotify x Wallpaper Engine Sync - Studio Suite v3.0.3 (Comprehensive Bugfix)
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
  * Fixes:
  *  - Safe Spicetify Player Loader with Retries (Prevents unhandled runtime errors)
@@ -759,6 +759,7 @@
       video.autoplay = true;
       video.loop = true;
       video.muted = true;
+      video.defaultMuted = true;
       video.playsInline = true;
       video.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.4s ease;";
 
@@ -796,17 +797,26 @@
 
     if (data.type === "video") {
       img.style.opacity = "0";
-      if (video.src !== data.url) {
+      const cleanExisting = (video.src || "").split("?")[0];
+      const cleanNew = (data.url || "").split("?")[0];
+      if (cleanExisting !== cleanNew || !video.src) {
         video.src = data.url;
-        video.onloadeddata = () => {
+        video.oncanplay = () => {
           video.style.opacity = "1";
+          video.play().catch(() => {});
         };
+        video.play().catch(() => {});
       } else {
         video.style.opacity = "1";
+        if (video.paused) {
+          video.play().catch(() => {});
+        }
       }
     } else if (data.type === "image") {
       video.style.opacity = "0";
-      if (img.src !== data.url) {
+      const cleanExisting = (img.src || "").split("?")[0];
+      const cleanNew = (data.url || "").split("?")[0];
+      if (cleanExisting !== cleanNew || !img.src) {
         img.src = data.url;
         img.onload = () => {
           img.style.opacity = "1";
@@ -899,7 +909,7 @@
       initDOMObserver();
       connectWebSocket();
       enforceFullTransparency();
-      console.log("[WE-Sync] Studio Suite v3.0.1 initialized successfully.");
+      console.log("[WE-Sync] Studio Suite v3.0.3 initialized successfully.");
     } catch (err) {
       console.error("[WE-Sync] Initialization error:", err);
     }
