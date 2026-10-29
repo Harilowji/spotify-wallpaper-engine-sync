@@ -1,5 +1,5 @@
 /**
- * Spotify x Wallpaper Engine Sync - WESyncServer.js (v3.0.2)
+ * Spotify x Wallpaper Engine Sync - WESyncServer.js (v3.1.0)
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
  * Features:
  * - Multi-drive Steam & Wallpaper Engine auto-discovery (Registry + libraryfolders.vdf + drive scan)
@@ -682,6 +682,7 @@ const server = http.createServer(async (req, res) => {
             const payload = getActiveWallpaperPayload();
             res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
             res.end(JSON.stringify({
+                version: "3.1.0",
                 status: "ok",
                 weRunning: payload.weRunning,
                 wallpaper: payload.wallpaper,

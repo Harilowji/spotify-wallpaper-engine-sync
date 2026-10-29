@@ -1,7 +1,7 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Spatial Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 3.0.3 (Precision Popper Positioning, Modal Close Fix & Zero-Scrollbar Restoration)
+ * Version: 3.1.0 (Production Release - Multi-Drive Discovery, 30-40-30 Layout & Precision Popper Fix)
  */
 
 /* ==========================================================================
@@ -701,16 +701,19 @@ div[data-tippy-root] {
   background: transparent !important;
 }
 
-div[data-tippy-root] * {
+/* Phân định chính xác tương tác: Menu nhận Click 100%, Tooltip xuyên thấu 100% */
+div[data-tippy-root] [role="tooltip"],
+div[data-tippy-root] [role="tooltip"] *,
+.main-contextMenu-tippy,
+[role="tooltip"] {
   pointer-events: none !important;
 }
 
-/* Tooltip hiển thị chú thích nút bấm - Kính mờ sang trọng, tự thu gọn, XUYÊN THẤU 100% KHÔNG BAO GIỜ CHẶN CLICK */
-.main-contextMenu-tippy,
-[role="tooltip"],
-[data-tippy-root] [role="tooltip"],
-[data-tippy-root] div {
-  pointer-events: none !important;
+div[data-tippy-root] [role="menu"],
+div[data-tippy-root] [role="menu"] *,
+div[data-tippy-root] .main-contextMenu-menu,
+div[data-tippy-root] .main-contextMenu-menu * {
+  pointer-events: auto !important;
 }
 
 .main-contextMenu-tippy,

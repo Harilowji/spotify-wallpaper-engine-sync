@@ -1,5 +1,5 @@
 /**
- * Spotify x Wallpaper Engine Sync - Studio Suite v3.0.3 (Comprehensive Bugfix)
+ * Spotify x Wallpaper Engine Sync - Studio Suite v3.1.0 (Comprehensive Production Release)
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
  * Fixes:
  *  - Safe Spicetify Player Loader with Retries (Prevents unhandled runtime errors)
@@ -119,6 +119,7 @@
     }
 
     init() {
+      window._weSettingsGUI = this;
       this.createTopbarButton();
       this.createModalDOM();
       this.bindKeyboardShortcuts();
@@ -177,7 +178,7 @@
           <div class="we-modal-header">
             <div class="we-modal-title">
               <span>Spotify x Wallpaper Engine Studio</span>
-              <span class="we-badge">v3.0.1</span>
+              <span class="we-badge">v3.1.0</span>
             </div>
             <button class="we-modal-close" id="we-modal-close-btn">&times;</button>
           </div>
@@ -727,7 +728,14 @@
   }
 
   function initDOMObserver() {
-    const observer = new MutationObserver(() => enforceFullTransparency());
+    const observer = new MutationObserver(() => {
+      enforceFullTransparency();
+      if (window._weSettingsGUI && typeof window._weSettingsGUI.createTopbarButton === "function") {
+        if (!document.getElementById("we-settings-btn") && (!window.Spicetify || !document.querySelector(".main-topBar-button"))) {
+          window._weSettingsGUI.createTopbarButton();
+        }
+      }
+    });
     observer.observe(document.body, { childList: true, subtree: true });
 
     const tryBindScroll = () => {
@@ -800,6 +808,10 @@
       const cleanExisting = (video.src || "").split("?")[0];
       const cleanNew = (data.url || "").split("?")[0];
       if (cleanExisting !== cleanNew || !video.src) {
+        video.defaultMuted = true;
+        video.muted = true;
+        video.autoplay = true;
+        video.loop = true;
         video.src = data.url;
         video.oncanplay = () => {
           video.style.opacity = "1";
@@ -909,7 +921,7 @@
       initDOMObserver();
       connectWebSocket();
       enforceFullTransparency();
-      console.log("[WE-Sync] Studio Suite v3.0.3 initialized successfully.");
+      console.log("[WE-Sync] Studio Suite v3.1.0 initialized successfully.");
     } catch (err) {
       console.error("[WE-Sync] Initialization error:", err);
     }
