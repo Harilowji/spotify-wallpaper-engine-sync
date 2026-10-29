@@ -1,11 +1,11 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Spatial Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 2.8.3 (Precision Popper Positioning & Non-Blocking Tooltip Engine)
+ * Version: 3.0.0 (Riff Fusion & Studio Suite - Settings GUI, Visualizer & Dynamic Accent)
  */
 
 /* ==========================================================================
-   0. GHI ĐÈ BIẾN MÀU TOÀN CỤC, ENCORE THEME & LYRICS VARIABLES
+   0. BIẾN MÀU TOÀN CỤC, ENCORE THEME, LYRICS & DYNAMIC ACCENT
    ========================================================================== */
 :root,
 body,
@@ -15,6 +15,11 @@ body,
 .encore-light-theme,
 .encore-bright-accent-theme,
 .encore-internal-color-theme {
+  --we-overlay-opacity: 0.15;
+  --we-glass-blur: 14px;
+  --we-accent-primary: #1ed760;
+  --we-accent-glow: rgba(30, 215, 96, 0.45);
+  --catjam-size: 36px;
   --background-base: transparent !important;
   --background-elevated-base: transparent !important;
   --background-tinted-base: transparent !important;
@@ -26,13 +31,13 @@ body,
   --spice-shadow: transparent !important;
   --spice-misc: transparent !important;
   --spice-main-elevated: transparent !important;
-  --background-highlight: rgba(255, 255, 255, 0.08) !important;
-  --background-press: rgba(255, 255, 255, 0.14) !important;
-  --background-elevated-highlight: rgba(255, 255, 255, 0.08) !important;
-  --background-elevated-press: rgba(255, 255, 255, 0.14) !important;
-  --background-tinted-highlight: rgba(255, 255, 255, 0.10) !important;
-  --background-tinted-press: rgba(255, 255, 255, 0.16) !important;
-  --text-subdued: rgba(255, 255, 255, 0.80) !important;
+  --background-highlight: rgba(255, 255, 255, 0.05) !important;
+  --background-press: rgba(255, 255, 255, 0.10) !important;
+  --background-elevated-highlight: rgba(255, 255, 255, 0.05) !important;
+  --background-elevated-press: rgba(255, 255, 255, 0.10) !important;
+  --background-tinted-highlight: rgba(255, 255, 255, 0.06) !important;
+  --background-tinted-press: rgba(255, 255, 255, 0.12) !important;
+  --text-subdued: rgba(255, 255, 255, 0.82) !important;
   --lyrics-color-background: transparent !important;
   --lyrics-color-active: #ffffff !important;
   --lyrics-color-inactive: rgba(255, 255, 255, 0.45) !important;
@@ -45,7 +50,7 @@ body,
 .encore-bright-accent-set,
 button[data-encore-id="buttonPrimary"] > span,
 [data-testid="play-button"] > span {
-  --background-base: #1ed760 !important;
+  --background-base: var(--we-accent-primary, #1ed760) !important;
   --background-highlight: #3be477 !important;
   --background-press: #1abc54 !important;
   --background-elevated-base: #3be477 !important;
@@ -61,36 +66,6 @@ button[data-testid="control-button-playpause"] > span {
   --background-elevated-base: #f0f0f0 !important;
   background-color: var(--background-base) !important;
   color: #000000 !important;
-}
-
-/* Phục hồi icon tam giác phát nhạc / tạm dừng (Play / Pause) màu đen sắc nét */
-.main-playButton-PlayButton svg,
-[data-testid="play-button"] svg,
-[data-testid="control-button-playpause"] svg,
-.player-controls__buttons button:nth-child(3) svg,
-.encore-bright-accent-set svg,
-.encore-inverted-light-set svg,
-[data-encore-id="buttonPrimary"] svg {
-  fill: #000000 !important;
-  color: #000000 !important;
-}
-
-.main-playButton-PlayButton svg path,
-[data-testid="play-button"] svg path,
-[data-testid="control-button-playpause"] svg path,
-.player-controls__buttons button:nth-child(3) svg path,
-.encore-bright-accent-set svg path,
-.encore-inverted-light-set svg path,
-[data-encore-id="buttonPrimary"] svg path {
-  fill: #000000 !important;
-}
-
-/* Icon Play khi di chuột lên từng dòng bài hát trong danh sách album/playlist */
-.main-trackList-rowPlayPauseButton,
-.main-trackList-rowPlayPauseButton svg,
-.main-trackList-rowPlayPauseButton svg path {
-  fill: #FFFFFF !important;
-  color: #FFFFFF !important;
 }
 
 *:focus,
@@ -139,7 +114,7 @@ footer,
 .WWTxshVPO07BZLrdUL3h,
 [class*="bokji"],
 .bokjI1jrN2MBe7RA0384,
-.L5dM7nzQpMJtRkvZZBZL,
+.L5dM7nzQpMJtRkvZZBZl,
 [class*="kqeAX"],
 .kqeAXHJzFfJ_27frg58J,
 [class*="tDwxp"],
@@ -177,7 +152,6 @@ header > div,
   border: none !important;
 }
 
-/* Ẩn triệt để mọi lớp phủ màu trích xuất trong Topbar khi cuộn Playlist/Album */
 header div[style*="background-color"]:not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set),
 .main-topBar-container div[style*="background-color"]:not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set),
 .main-topBar-background::before,
@@ -190,7 +164,6 @@ header div[style*="background-color"]:not([data-encore-id="buttonPrimary"]):not(
   opacity: 0 !important;
 }
 
-/* Làm trong suốt hoàn toàn thanh tiêu đề cột (# | Title | Album | Date added) */
 .main-trackList-trackListHeader,
 .main-trackList-trackListHeaderStuck,
 [data-testid="tracklist-header"],
@@ -204,7 +177,6 @@ header div[style*="background-color"]:not([data-encore-id="buttonPrimary"]):not(
   border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
 }
 
-/* Hiệu ứng Scroll Mask Fade: Làm mờ dần các bài hát khi cuộn chạm vào thanh ngang phía trên để không đè chữ */
 .main-view-container__scroll-node {
   -webkit-mask-image: linear-gradient(
     to bottom,
@@ -225,12 +197,6 @@ header div[style*="background-color"]:not([data-encore-id="buttonPrimary"]):not(
 /* ==========================================================================
    3. STRUCTURAL & SEMANTIC SELECTORS CHO PLAYLIST, ALBUM, ARTIST, HOME
    ========================================================================== */
-@keyframes weArtistBannerFadeOnScroll {
-  0% { opacity: 1; }
-  40% { opacity: 0; }
-  100% { opacity: 0; }
-}
-
 section[data-testid="playlist-page"],
 section[data-testid="playlist-page"] > div,
 section[data-testid="playlist-page"] > div > div,
@@ -246,6 +212,8 @@ section[data-testid="entity-page"] > div > div,
 [data-testid="home-page"],
 [data-testid="home-page"] > div,
 [data-testid="home-page"] > div > div,
+[data-testid="search-page"],
+[data-testid="search-page"] > div,
 .contentSpacing,
 .main-entityHeader-container,
 [data-testid="action-bar"],
@@ -266,84 +234,19 @@ section[data-testid="entity-page"] > div > div,
 .before-scroll-node > div,
 [data-testid="entity-header"],
 .UbzV6GmaFXRSbQNfaAZL,
-.UbzV6GmaFXRSbQNfaAZL.gmb9NAvXgkg8XFMlNTNR.PlM17FTnYyoT8BzLzLfF,
 .kf1HPd1wGLg8GjJjmpc6,
 .goKXWei7aIJdA857U744,
 .e1NRR9_1RgRwafalesSw,
 [data-seamless-gradient],
-.d7rHODV83neFiPSeUqDB,
-.RrsZOGIxRodS0Y3_I2PP,
-.N8txqpJDIS_ueBeNFTb,
-.noaTIqu8A6IyB7ABXzU8,
-.NG0KBybUCTo8_SxXHF3N,
-.V7IcuEr1ZBtemPGKXeZb,
-.a7UoWEK9rJQn8d_UPcnk,
-.oCSWtOAH_CgjIsI_H_PS,
-.Ac2raqVCOQ_HYbbCkBAP,
-.tKaJ5awSBwDlHmRqmrzy,
-.bKeLEamA2GUDUCyJn4Pr,
-.ucbWUZK48MWVSaUEQhQ0,
-.CR4LyX0RXKO7Xd8ixdOa,
-.oRu_0tmKCe8Uko1B9TSg,
-[class*="V7Icu"],
-[class*="oCSWt"],
-[class*="Ac2raq"],
-[class*="bKeLE"],
-[class*="ucbWU"],
-._ddPhxHdxmpT13IbjTmr,
-[class*="_ddPhx"],
-.rGEcrRDg48wzjhmWpRRi,
-[class*="rGEcr"],
-.DQdyZLsEcy2FX58iLIu7,
-[class*="DQdyZ"],
-.EPbGVi8nqTUQDXtK5I1p,
-[class*="EPbGVi"],
-.wZUygRFNStcwxAbR8qfL,
-[class*="wZUyg"],
-[data-testid="overscroll-background"],
-.AJjP1RzhySwiLWVcLLNA,
-[class*="AJjP1"],
-.xWAGb7rkhYb1eQ8LiDaB,
-[class*="xWAGb"] {
+[data-testid="overscroll-background"] {
   background: transparent !important;
   background-color: transparent !important;
   background-image: none !important;
   box-shadow: none !important;
 }
 
-.main-entityHeader-overlay,
-.main-topBar-overlay,
-.main-view-container__scroll-node-child-blinder,
-[data-testid="overscroll-background"],
-[data-seamless-gradient]::before,
-[data-seamless-gradient]::after,
-.main-actionBarBackground-background::before,
-.main-actionBarBackground-background::after,
-.goKXWei7aIJdA857U744:after,
-.d7rHODV83neFiPSeUqDB:after,
-.RrsZOGIxRodS0Y3_I2PP:after,
-.Ac2raqVCOQ_HYbbCkBAP:after,
-.tKaJ5awSBwDlHmRqmrzy:after {
-  opacity: 0 !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-}
-
-.before-scroll-node [data-testid="background-image"],
-.before-scroll-node [class*="KRY4R"] {
-  display: block !important;
-  background-color: transparent !important;
-  animation-name: weArtistBannerFadeOnScroll !important;
-  animation-duration: 1s !important;
-  animation-timing-function: linear !important;
-  animation-play-state: paused !important;
-  animation-delay: calc(var(--scroll) * -1s) !important;
-  animation-fill-mode: both !important;
-}
-
 /* ==========================================================================
-   4. TRANG LYRICS (LỜI BÀI HÁT) TRONG SUỐT HOÀN TOÀN 100%
+   4. TRANG LYRICS (LỜI BÀI HÁT) TRONG SUỐT 100% & M3 KARAOKE GLOW
    ========================================================================== */
 [data-testid="lyrics-page"],
 [data-testid="lyrics-page"] > div,
@@ -371,7 +274,6 @@ main:has([data-testid="lyrics-line"]) div {
   box-shadow: none !important;
 }
 
-/* Chữ lời bài hát sắc nét, nổi bật trên nền động Wallpaper Engine */
 [data-testid="lyrics-line"],
 .lyrics-lyricsContent-lyric,
 .main-lyricsView-textRow {
@@ -385,462 +287,299 @@ main:has([data-testid="lyrics-line"]) div {
 .lyrics-lyricsContent-active,
 .main-lyricsView-textRow-active {
   color: #ffffff !important;
-  text-shadow: 0 0 18px rgba(255, 255, 255, 0.65), 0 2px 10px rgba(0, 0, 0, 0.95) !important;
-  transform: scale(1.02) !important;
+  text-shadow: 0 0 20px var(--we-accent-glow, rgba(30, 215, 96, 0.65)), 0 2px 10px rgba(0, 0, 0, 0.95) !important;
+  transform: scale(1.05) !important;
 }
 
 /* ==========================================================================
-   5. THANH ĐIỀU HƯỚNG TRÊN CÙNG (GLOBAL NAV & SEARCH BAR) & VIÊN THUỐC LỌC
+   5. SETTINGS BUTTON & GLASSMORPHISM MODAL GUI (#we-settings-modal)
    ========================================================================== */
-.Root__globalNav *,
-#global-nav-bar *,
-.main-globalNav-searchInputContainer,
-.main-globalNav-searchInputContainer > div,
-form[role="search"],
-form[role="search"] > div,
-.main-yourLibraryX-filterArea,
-.main-yourLibraryX-filterArea > div {
-  background-color: transparent !important;
-  background: transparent !important;
-  box-shadow: none !important;
-}
-
-[data-testid="search-input"],
-form[role="search"] input,
-.main-globalNav-searchInputContainer input,
-.x-filterBox-filterInput,
-[role="searchbox"] {
-  background-color: rgba(255, 255, 255, 0.03) !important;
+#we-settings-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
   border: 1px solid rgba(255, 255, 255, 0.12) !important;
-  backdrop-filter: none !important;
+  border-radius: 50% !important;
+  width: 34px !important;
+  height: 34px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease !important;
   color: #ffffff !important;
+  margin-left: 8px !important;
 }
 
-[role="tablist"] button,
-[role="tablist"] button > span,
-[data-encore-id="chip"],
-[data-encore-id="chip"] > span,
-button[aria-label="Home"],
-[data-testid="home-button"] {
-  background-color: rgba(255, 255, 255, 0.04) !important;
-  background: rgba(255, 255, 255, 0.04) !important;
-  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+#we-settings-btn:hover {
+  transform: scale(1.08) rotate(30deg);
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: var(--we-accent-primary, #1ed760) !important;
+}
+
+#we-settings-modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+  z-index: 1000000 !important;
+  background: rgba(0, 0, 0, 0.40) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+#we-settings-modal-overlay.active {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+#we-settings-modal {
+  width: 580px !important;
+  max-width: 92vw !important;
+  max-height: 85vh !important;
+  background: rgba(16, 16, 24, 0.65) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
+  border-radius: 20px !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7), 0 0 30px var(--we-accent-glow, rgba(30, 215, 96, 0.2)) !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+  transform: scale(0.94);
+  transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+#we-settings-modal-overlay.active #we-settings-modal {
+  transform: scale(1);
+}
+
+.we-modal-header {
+  padding: 18px 24px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: space-between !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.10) !important;
+}
+
+.we-modal-title {
+  font-size: 16px !important;
+  font-weight: 700 !important;
   color: #ffffff !important;
-  box-shadow: none !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
 }
 
-[role="tablist"] button[aria-selected="true"],
-[role="tablist"] button[aria-selected="true"] > span,
-[data-encore-id="chip"][aria-selected="true"] {
-  background-color: rgba(255, 255, 255, 0.16) !important;
-  border-color: rgba(255, 255, 255, 0.35) !important;
-}
-
-/* Ẩn nút quảng cáo "Explore Premium" màu trắng đục gây chói và che góc trên */
-button[data-testid="upgrade-button"],
-.main-topBar-UpgradeButton,
-a[href*="spotify.com/premium"] {
-  display: none !important;
-}
-
-/* ==========================================================================
-   6. THANH THƯ VIỆN BÊN TRÁI (YOUR LIBRARY) & BÊN PHẢI (NOW PLAYING VIEW)
-   ========================================================================== */
-#Desktop_LeftSidebar_Id,
-#Desktop_LeftSidebar_Id > div,
-#Desktop_LeftSidebar_Id nav,
-#Desktop_LeftSidebar_Id nav > div,
-.main-yourLibraryX-entryPoints,
-.main-yourLibraryX-background,
-.main-yourLibraryX-libraryContainer,
-.main-yourLibraryX-libraryIsCollapsed,
-.main-yourLibraryX-isCollapsed,
-.main-yourLibraryX-library,
-.main-yourLibraryX-libraryRootlist,
-.main-yourLibraryX-header,
-.main-yourLibraryX-listItem,
-[data-testid="rootlist-item"],
-.Root__right-sidebar,
-.Root__right-sidebar > div,
-.Root__right-sidebar aside,
-.Root__right-sidebar aside.NowPlayingView,
-.Root__right-sidebar aside > div,
-.main-nowPlayingView-contextItemInfo,
-.main-nowPlayingView-section,
-.main-nowPlayingView-content,
-.main-buddyFeed-container,
-.U6DZDQSNLMHsjnws7ZV1,
-.NsM_Z8RS1UDNffwrtu98,
-.tXGFYqRGWW13ldePz89Q,
-.jfXGHGTAx7Qc8JuCJ4K0,
-.tjf0yo8EHbbCQwMm3mkF,
-[class*="NowPlayingView"],
-[class*="YourLibrary"] {
-  background-color: transparent !important;
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-/* Làm trong suốt 100% toàn bộ các hộp con (widgets, mini lyrics, about artist, credits, queue) trong cột phải và thư viện trái */
-#Desktop_LeftSidebar_Id *:not(img):not(video):not(svg):not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set),
-.Root__right-sidebar *:not(img):not(video):not(svg):not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set):not(.main-nowPlayingView-aboutArtistV2Image):not(.main-nowPlayingView-aboutArtistV2ImageContainer):not([style*="background-image"]),
-aside.NowPlayingView *:not(img):not(video):not(svg):not([data-encore-id="buttonPrimary"]):not(.encore-bright-accent-set):not(.main-nowPlayingView-aboutArtistV2Image):not(.main-nowPlayingView-aboutArtistV2ImageContainer):not([style*="background-image"]),
-.main-nowPlayingView-section,
-.main-nowPlayingView-section > div,
-.main-nowPlayingView-aboutArtistV2,
-.main-nowPlayingView-credits,
-.main-nowPlayingView-queue,
-.main-nowPlayingView-lyricsContent,
-[data-testid="lyrics-card"],
-[data-testid="artist-card"],
-[data-testid="credits-card"],
-[data-testid="queue-card"] {
-  --background-base: transparent !important;
-  --background-elevated-base: transparent !important;
-  --background-tinted-base: transparent !important;
-  --lyrics-color-background: transparent !important;
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-}
-
-/* Giữ lại ảnh nghệ sĩ và tối ưu thẻ About the Artist bên cột phải */
-.Root__right-sidebar [data-testid="background-image"],
-aside.NowPlayingView [data-testid="background-image"],
-.main-nowPlayingView-aboutArtistV2 [style*="background-image"],
-.main-nowPlayingView-aboutArtistV2Image,
-.main-nowPlayingView-aboutArtistV2ImageContainer {
-  background-color: transparent !important;
-  background-size: cover !important;
-  background-position: center !important;
+.we-badge {
+  font-size: 10px !important;
+  padding: 3px 8px !important;
   border-radius: 12px !important;
-  overflow: hidden !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45) !important;
+  background: var(--we-accent-primary, #1ed760) !important;
+  color: #000000 !important;
+  font-weight: 800 !important;
 }
 
-/* Đảm bảo Cover Art trong Now Playing View luôn hiển thị rõ ràng, không bị Canvas rỗng che khuất */
-.main-nowPlayingView-coverArtContainer > div:first-child,
-.main-nowPlayingView-coverArtContainer img,
-.main-nowPlayingView-coverArt img {
-  visibility: visible !important;
-  opacity: 1 !important;
+.we-modal-close {
+  background: transparent !important;
+  border: none !important;
+  color: #ffffff !important;
+  font-size: 22px !important;
+  cursor: pointer !important;
+  width: 32px !important;
+  height: 32px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  border-radius: 50% !important;
 }
 
-/* Ngăn tiêu đề bài hát trên Now Playing View đè lên nút Checkmark/Thêm vào thư viện */
-.main-nowPlayingView-trackInfo,
-.main-nowPlayingView-contextItemInfo .main-trackInfo-container {
-  overflow: hidden !important;
-  max-width: calc(100% - 44px) !important;
+.we-modal-close:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
 }
 
-.main-nowPlayingView-trackInfo .main-trackInfo-name,
-.main-nowPlayingView-trackInfo .main-trackInfo-name a,
-.main-nowPlayingView-trackInfo .main-trackInfo-name span {
-  white-space: nowrap !important;
-  overflow: hidden !important;
-  text-overflow: ellipsis !important;
+.we-modal-tabs {
+  display: flex !important;
+  padding: 10px 20px !important;
+  gap: 8px !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  background: rgba(0, 0, 0, 0.15) !important;
+}
+
+.we-tab-btn {
+  background: transparent !important;
+  border: 1px solid transparent !important;
+  color: rgba(255, 255, 255, 0.65) !important;
+  padding: 8px 14px !important;
+  border-radius: 10px !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.we-tab-btn:hover {
+  color: #ffffff !important;
+  background: rgba(255, 255, 255, 0.06) !important;
+}
+
+.we-tab-btn.active {
+  color: #000000 !important;
+  background: var(--we-accent-primary, #1ed760) !important;
+  font-weight: 700 !important;
+}
+
+.we-modal-body {
+  padding: 20px 24px !important;
+  overflow-y: auto !important;
+  max-height: 480px !important;
+}
+
+.we-control-group {
+  margin-bottom: 18px !important;
+}
+
+.we-control-label {
+  display: flex !important;
+  justify-content: space-between !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  margin-bottom: 8px !important;
+}
+
+.we-slider {
+  width: 100% !important;
+  height: 6px !important;
+  border-radius: 3px !important;
+  background: rgba(255, 255, 255, 0.15) !important;
+  outline: none !important;
+  accent-color: var(--we-accent-primary, #1ed760) !important;
+  cursor: pointer !important;
+}
+
+.we-switch {
+  position: relative !important;
   display: inline-block !important;
-  max-width: 100% !important;
+  width: 44px !important;
+  height: 24px !important;
+}
+
+.we-switch input {
+  opacity: 0 !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.we-switch-slider {
+  position: absolute !important;
+  cursor: pointer !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  background-color: rgba(255, 255, 255, 0.2) !important;
+  transition: 0.3s !important;
+  border-radius: 24px !important;
+}
+
+.we-switch-slider:before {
+  position: absolute !important;
+  content: "" !important;
+  height: 18px !important;
+  width: 18px !important;
+  left: 3px !important;
+  bottom: 3px !important;
+  background-color: white !important;
+  transition: 0.3s !important;
+  border-radius: 50% !important;
+}
+
+.we-switch input:checked + .we-switch-slider {
+  background-color: var(--we-accent-primary, #1ed760) !important;
+}
+
+.we-switch input:checked + .we-switch-slider:before {
+  transform: translateX(20px) !important;
+  background-color: #000000 !important;
+}
+
+.we-preset-grid {
+  display: grid !important;
+  grid-template-columns: repeat(2, 1fr) !important;
+  gap: 10px !important;
+  margin-top: 10px !important;
+}
+
+.we-preset-btn {
+  background: rgba(255, 255, 255, 0.05) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  border-radius: 10px !important;
+  padding: 10px !important;
+  color: #ffffff !important;
+  font-size: 12px !important;
+  font-weight: 600 !important;
+  cursor: pointer !important;
+  transition: all 0.2s ease !important;
+}
+
+.we-preset-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  border-color: var(--we-accent-primary, #1ed760) !important;
 }
 
 /* ==========================================================================
-   7. THANH PHÁT NHẠC DƯỚI CÙNG (NOW PLAYING BAR) & TIẾN TRÌNH NHẠC
+   6. THANH PHÁT NHẠC, TIẾN TRÌNH NHẠC & CAT-JAM
    ========================================================================== */
-.Root__top-container > div:has(> [data-testid="now-playing-bar"]),
-.Root__top-container > div:has(> .main-nowPlayingBar-container),
-.Root__top-container > div:has(aside),
-.Root__top-container > div:has(footer),
-.z0qdvwsl0FVOAihShLiq,
-.Root__now-playing-bar,
-footer,
-footer > div,
-aside[data-testid="now-playing-bar"],
-aside[data-testid="now-playing-bar"] > div,
-[data-testid="now-playing-bar"],
-[data-testid="now-playing-bar"] > div,
-.main-nowPlayingBar-container,
-.main-nowPlayingBar-nowPlayingBar {
-  background-color: transparent !important;
-  background: transparent !important;
-  background-image: none !important;
-  box-shadow: none !important;
-  border: none !important;
-}
-
 #catjam-webm,
 video[id="cat"] {
-  width: 36px !important;
-  height: 36px !important;
-  max-width: 38px !important;
-  max-height: 38px !important;
-  margin: 0 8px 0 0 !important;
+  width: var(--catjam-size, 36px) !important;
+  height: var(--catjam-size, 36px) !important;
+  max-width: 60px !important;
+  max-height: 60px !important;
+  margin: 0 6px 0 0 !important;
   align-self: center !important;
   object-fit: contain !important;
   flex-shrink: 0 !important;
   border-radius: 6px !important;
   display: inline-block !important;
-  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
+  filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.6));
 }
 
-[data-testid="CoverSlotCollapsed__container"],
-[data-testid="CoverSlotCollapsed__container"] > div,
-button[data-testid="cover-art-button"],
-.ar_EqL2QE56qHRlOjjRL,
-.ar_EqL2QE56qHRlOjjRL .Yt141XJk6mRJLom30JFp,
-.ar_EqL2QE56qHRlOjjRL .w9pu_fGD7eJsMvqEnlYK {
-  width: 42px !important;
-  height: 42px !important;
-  min-width: 42px !important;
-  min-height: 42px !important;
-  max-width: 42px !important;
-  max-height: 42px !important;
-  align-self: center !important;
-  flex-shrink: 0 !important;
-  border-radius: 6px !important;
-  overflow: hidden !important;
-}
-
-.ar_EqL2QE56qHRlOjjRL img,
-[data-testid="CoverSlotCollapsed__container"] img,
-.main-nowPlayingWidget-coverArt img {
-  width: 42px !important;
-  height: 42px !important;
-  max-width: 100% !important;
-  max-height: 100% !important;
-  object-fit: cover !important;
-  border-radius: 6px !important;
-}
-
-[data-testid="now-playing-bar"],
-.main-nowPlayingBar-container {
-  width: 100% !important;
-}
-
-[data-testid="now-playing-bar"] > div,
-.main-nowPlayingBar-container > footer,
-.main-nowPlayingBar-nowPlayingBar {
-  width: 100% !important;
-  display: flex !important;
-  flex-direction: row !important;
-  justify-content: space-between !important;
-  align-items: center !important;
-  overflow: hidden !important;
-}
-
-.main-nowPlayingBar-left,
-[data-testid="now-playing-bar"] > div > div:first-child {
-  display: flex !important;
-  align-items: center !important;
-  min-width: 180px !important;
-  width: 30% !important;
-  flex-grow: 0 !important;
-  flex-shrink: 1 !important;
-  background: transparent !important;
-}
-
-.main-nowPlayingBar-center,
-[data-testid="now-playing-bar"] > div > div:nth-child(2) {
-  display: block !important;
-  width: 40% !important;
-  max-width: 722px !important;
-  flex-grow: 1 !important;
-  background: transparent !important;
-}
-
-.main-nowPlayingBar-center .nlflc_kABDtTGWXebiA6,
-[data-testid="player-controls"] {
-  width: 100% !important;
-}
-
-.main-nowPlayingBar-right,
-[data-testid="now-playing-bar"] > div > div:last-child {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: flex-end !important;
-  min-width: 180px !important;
-  width: 30% !important;
-  flex-grow: 0 !important;
-  flex-shrink: 1 !important;
-  gap: 0 !important;
-  background: transparent !important;
-}
-
-.main-nowPlayingBar-extraControls,
-[data-testid="now-playing-bar"] > div > div:last-child > div:last-child {
-  display: flex !important;
-  justify-content: flex-end !important;
-  flex-grow: 0 !important;
-  flex-shrink: 0 !important;
-}
-
-/* Nâng cao độ tương phản và hiệu ứng hover cho các icon chức năng bên phải (Lyrics, Queue, Connect, Mute) */
-.main-nowPlayingBar-extraControls button:not(.control-button--active):not([data-active="true"]):not([aria-checked="true"]) {
-  color: rgba(255, 255, 255, 0.78) !important;
-  transition: color 0.15s ease, transform 0.15s ease;
-}
-
-.main-nowPlayingBar-extraControls button:hover {
-  color: #ffffff !important;
-  transform: scale(1.08);
-}
-
-.main-nowPlayingWidget-nowPlaying,
-[data-testid="now-playing-widget"] {
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  max-width: 100% !important;
-  overflow: hidden !important;
-}
-
-/* Phục hồi hiển thị tên bài hát & nghệ sĩ trên Now Playing Bar (xóa mask gradient làm tàng hình chữ) */
-.main-trackInfo-overlay,
-.main-trackInfo-contentContainer,
-.main-trackInfo-container,
-.main-trackInfo-name,
-.main-trackInfo-artists,
-[class*="trackInfo"] {
-  -webkit-mask-image: none !important;
-  mask-image: none !important;
-  overflow: visible !important;
-}
-
-.main-trackInfo-name a,
-.main-trackInfo-name span {
-  color: #FFFFFF !important;
-  font-weight: 700 !important;
-  display: inline-block !important;
-}
-
-.main-trackInfo-artists a,
-.main-trackInfo-artists span {
-  color: #B3B3B3 !important;
-  display: inline-block !important;
-}
-
-/* Bảo vệ màu sắc của thanh tiến trình bài hát và thanh âm lượng */
 .playback-bar .x-progressBar-progressBarBg,
 .volume-bar .x-progressBar-progressBarBg,
 [data-testid="progress-bar-background"] {
-  background-color: rgba(255, 255, 255, 0.25) !important;
+  background-color: rgba(255, 255, 255, 0.22) !important;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.4);
 }
 
 .playback-bar .x-progressBar-fillColor,
 .volume-bar .x-progressBar-fillColor,
 [data-testid="progress-bar"] [style*="transform"] {
-  background-color: #ffffff !important;
+  background-color: var(--we-accent-primary, #1ed760) !important;
 }
 
 .playback-bar:hover .x-progressBar-fillColor,
 .volume-bar:hover .x-progressBar-fillColor {
-  background-color: #1ed760 !important;
-}
-
-/* Độ tương phản chữ sắc nét trên mọi hình nền */
-.main-nowPlayingWidget-trackInfo,
-.main-trackInfo-container,
-.main-nowPlayingBar-left,
-.main-trackInfo-name a,
-.main-trackInfo-artists a,
-[data-testid="tracklist-row"] [data-encore-id="text"],
-.main-trackList-trackListRow [data-encore-id="text"],
-h1, h2, h3 {
-  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.85), 0 0 10px rgba(0, 0, 0, 0.45) !important;
-}
-
-/* ==========================================================================
-   8. THẺ CARD, LƯỚI SHORTCUT ĐẦU TRANG CHỦ & HỘP THỂ LOẠI TRANG TÌM KIẾM
-   ========================================================================== */
-.view-homeShortcutsGrid-shortcut,
-.view-homeShortcutsGrid-shortcut > div,
-[data-testid="home-page"] [data-encore-id="card"],
-[data-testid="home-page"] [data-encore-id="card"] > div,
-[data-testid="grid-container"] > div,
-[data-testid="grid-container"] [data-encore-id="card"],
-.main-card-card,
-.main-card-cardContainer,
-.main-card-draggable,
-[data-encore-id="card"],
-[data-testid="card"],
-.artist-artistPick-pinnedItem,
-.x0Tk9K1tu0sFwdD5iNF5,
-.ldcHu1zP_xmHBUFZfFeE {
-  background: transparent !important;
-  background-color: transparent !important;
-  background-image: none !important;
-  border: 1px solid transparent !important;
-  border-radius: 10px !important;
-  box-shadow: none !important;
-  transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.2s ease !important;
-}
-
-/* Khi di chuột vào hộp nhỏ chỉ hiện viền sáng siêu mảnh, không che nền */
-.view-homeShortcutsGrid-shortcut:hover,
-[data-encore-id="card"]:hover,
-.main-card-card:hover,
-.main-card-cardContainer:hover,
-.x0Tk9K1tu0sFwdD5iNF5:hover,
-.ldcHu1zP_xmHBUFZfFeE:hover,
-[data-testid="card"]:hover {
-  background-color: rgba(255, 255, 255, 0.05) !important;
-  border-color: rgba(255, 255, 255, 0.14) !important;
-  transform: translateY(-2px);
-}
-
-/* Các Hộp Thể Loại (Browse / Genre Cards) trên trang Search */
-[data-testid="browse-card"],
-[data-testid="browse-card"] > div,
-a[href*="/genre/"],
-a[href*="/genre/"] > div,
-a[href*="/concerts"] > div {
-  background: rgba(255, 255, 255, 0.03) !important;
-  background-color: rgba(255, 255, 255, 0.03) !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
-  border-radius: 10px !important;
-  box-shadow: none !important;
-}
-
-[data-testid="browse-card"]:hover,
-a[href*="/genre/"]:hover > div {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-  border-color: rgba(255, 255, 255, 0.22) !important;
-}
-
-[data-testid="tracklist-row"],
-.main-trackList-trackListRow,
-[role="row"] {
-  background: transparent !important;
-  background-color: transparent !important;
-  border-radius: 6px !important;
-  transition: background-color 0.15s ease !important;
-}
-
-[data-testid="tracklist-row"]:hover,
-.main-trackList-trackListRow:hover,
-[role="row"]:hover {
-  background-color: rgba(255, 255, 255, 0.08) !important;
-}
-
-[data-testid="tracklist-row"][aria-selected="true"],
-.main-trackList-trackListRow.main-trackList-selected,
-[role="row"][aria-selected="true"] {
-  background-color: rgba(255, 255, 255, 0.12) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background-color: var(--we-accent-primary, #1ed760) !important;
+  box-shadow: 0 0 10px var(--we-accent-glow, rgba(30, 215, 96, 0.5));
 }
 
 .main-trackList-playing [data-encore-id="text"],
 [data-testid="tracklist-row"] [style*="color: var(--text-bright-accent"] {
-  color: #1ed760 !important;
-  text-shadow: 0 0 10px rgba(30, 215, 96, 0.45), 0 1px 3px rgba(0, 0, 0, 0.9) !important;
+  color: var(--we-accent-primary, #1ed760) !important;
+  text-shadow: 0 0 12px var(--we-accent-glow, rgba(30, 215, 96, 0.45)), 0 1px 3px rgba(0, 0, 0, 0.9) !important;
 }
 
 /* ==========================================================================
-   9. POPUP, CONTEXT MENU, DROPDOWN & MODAL (KÍNH PHA LÊ SIÊU NHẸ)
+   7. HỘP THOẠI NHỎ, MENU, POPOVER & Z-INDEX WALLPAPER ENGINE
    ========================================================================== */
-/* Portals và Modals - Nâng lên trên #main mà không làm sai lệch luồng Flexbox */
+/* FIX: Khắc phục triệt để lỗi tooltip bị kẹt tọa độ và chặn click chuột */
 .ReactModalPortal:empty {
   display: none !important;
 }
@@ -862,12 +601,27 @@ div[data-portal-id] > *,
   pointer-events: auto !important;
 }
 
-/* Tippy Container - Bảo lưu định vị Absolute/Transform gốc của Popper, không kẹp lề flex */
 div[data-tippy-root] {
   z-index: 99999 !important;
 }
 
-/* Lớp phủ mờ (Backdrop Overlay) phía sau modal - giảm độ tối để không che hình nền */
+.main-contextMenu-tippy,
+[role="tooltip"] {
+  pointer-events: none !important;
+  background: rgba(16, 16, 22, 0.88) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
+  color: #FFFFFF !important;
+  font-size: 13px !important;
+  padding: 6px 12px !important;
+  max-width: 320px !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+}
+
 .GenericModal__overlay {
   position: fixed !important;
   top: 0 !important;
@@ -881,251 +635,33 @@ div[data-tippy-root] {
   pointer-events: auto !important;
 }
 
-/* Khối nội dung hộp thoại (Dialog / Modal) dạng kính mờ tinh thể pha lê nhẹ */
 .GenericModal,
-div[role="dialog"] {
+div[role="dialog"],
+div[role="menu"],
+ul[role="menu"],
+.main-contextMenu-menu,
+.main-userWidget-dropDownMenu,
+[data-encore-id="popover"],
+.connect-device-list-container {
   position: relative !important;
   z-index: 100000 !important;
   background: rgba(12, 12, 16, 0.32) !important;
   backdrop-filter: blur(14px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 16px !important;
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
+  border-radius: 14px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
   pointer-events: auto !important;
 }
 
-/* Làm trong suốt toàn bộ các hộp con bên trong Dialog/Modal và Popover */
-div[role="dialog"] div:not([class*="progressBar"]):not(.main-playlistEditDetailsModal-image),
-.GenericModal div:not([class*="progressBar"]):not(.main-playlistEditDetailsModal-image),
+div[role="dialog"] div:not([class*="progressBar"]),
+.GenericModal div:not([class*="progressBar"]),
 [data-encore-id="popover"] div {
   background-color: transparent !important;
   background: transparent !important;
   box-shadow: none !important;
 }
 
-/* Ô nhập liệu (Input / Textarea) bên trong Modal chỉnh sửa Playlist */
-div[role="dialog"] input,
-div[role="dialog"] textarea {
-  background-color: rgba(255, 255, 255, 0.06) !important;
-  border: 1px solid rgba(255, 255, 255, 0.15) !important;
-  color: #ffffff !important;
-}
-
-/* Nút đóng (X) và mọi nút thao tác bên trong Modal luôn bấm được */
-.main-playlistEditDetailsModal-closeBtn,
-button[aria-label="Close"],
-.pSxFsY9Fgcj5f8Gf05mh,
-[data-testid="playlist-edit-details-modal"] button,
-div[role="dialog"] button {
-  pointer-events: auto !important;
-  cursor: pointer !important;
-  z-index: 100001 !important;
-}
-
-/* Phục hồi màu icon nút đóng (X) trong modal sáng rõ */
-.main-playlistEditDetailsModal-closeBtn svg,
-button[aria-label="Close"] svg,
-.pSxFsY9Fgcj5f8Gf05mh svg {
-  fill: #FFFFFF !important;
-  color: #FFFFFF !important;
-}
-
-div[data-tippy-root],
-.main-contextMenu-menuHeading {
-  background: transparent !important;
-  background-color: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  backdrop-filter: none !important;
-}
-
-/* Tooltip hiển thị chú thích nút bấm - Kính mờ sang trọng, tự thu gọn, không bao giờ chặn click */
-.main-contextMenu-tippy,
-[role="tooltip"] {
-  pointer-events: none !important;
-  background: rgba(16, 16, 22, 0.88) !important;
-  backdrop-filter: blur(14px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
-  color: #FFFFFF !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8) !important;
-  padding: 6px 12px !important;
-  max-width: 320px !important;
-  white-space: normal !important;
-  word-break: break-word !important;
-  line-height: 1.4 !important;
-}
-
-/* Context Menu, Dropdown, Popover & Spotify Connect Device List */
-div[role="menu"],
-ul[role="menu"],
-.main-contextMenu-menu,
-.main-userWidget-dropDownMenu,
-[data-encore-id="popover"],
-.connect-device-list-container,
-.main-connect-device-picker {
-  z-index: 100000 !important;
-  background: rgba(12, 12, 16, 0.75) !important;
-  backdrop-filter: blur(18px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 12px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
-  pointer-events: auto !important;
-}
-
-div[role="menuitem"]:hover,
-button[role="menuitem"]:hover,
-li[role="presentation"] > button:hover,
-.main-contextMenu-menuItemButton:hover {
-  background-color: rgba(255, 255, 255, 0.12) !important;
-}
-
-/* ==========================================================================
-   10. THÔNG BÁO TOAST THÔNG MINH WE-SYNC & TRIỆT TIÊU 100% THANH CUỘN (ZERO-SCROLLBAR)
-   ========================================================================== */
-#we-sync-debug {
-  pointer-events: none !important;
-}
-#we-sync-toast {
-  position: fixed !important;
-  bottom: 100px !important;
-  right: 24px !important;
-  z-index: 999999 !important;
-  background: rgba(18, 18, 22, 0.84) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.18) !important;
-  border-radius: 12px !important;
-  padding: 12px 18px !important;
-  color: #ffffff !important;
-  font-size: 13px !important;
-  font-weight: 600 !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5) !important;
-  display: flex !important;
-  align-items: center !important;
-  gap: 10px !important;
-  pointer-events: none !important;
-  opacity: 0 !important;
-  transform: translateY(15px) scale(0.95) !important;
-  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
-}
-
-#we-sync-toast.we-toast-show {
-  opacity: 1 !important;
-  transform: translateY(0) scale(1) !important;
-}
-
-/* 1. Triệt tiêu hoàn toàn thanh cuộn WebKit trên toàn bộ ứng dụng (Vertical & Horizontal) */
-::-webkit-scrollbar,
-*::-webkit-scrollbar {
-  display: none !important;
-  width: 0 !important;
-  height: 0 !important;
-  background: transparent !important;
-}
-
-::-webkit-scrollbar-track,
-*::-webkit-scrollbar-track,
-::-webkit-scrollbar-thumb,
-*::-webkit-scrollbar-thumb,
-::-webkit-scrollbar-corner,
-*::-webkit-scrollbar-corner {
-  display: none !important;
-  background: transparent !important;
-  border: none !important;
-}
-
-/* 2. Tiêu chuẩn scrollbar-width & -ms-overflow-style (W3C standard cho Chromium/CEF) */
-html,
-body,
-#main,
-.Root,
-.Root__top-container,
-.Root__main-view,
-.main-view-container,
-.main-view-container__scroll-node,
-.main-view-container__scroll-node-child,
-.os-host,
-.os-padding,
-.os-viewport,
-.os-content,
-[data-overlayscrollbars-viewport],
-nav,
-aside,
-section,
-div,
-* {
-  scrollbar-width: none !important;
-  -ms-overflow-style: none !important;
-}
-
-/* 3. Ẩn triệt để thanh cuộn ảo OverlayScrollbars của Spotify */
-.os-scrollbar,
-.os-scrollbar-track,
-.os-scrollbar-handle,
-.os-scrollbar-corner,
-.os-scrollbar-cornerless,
-.os-scrollbar-horizontal,
-.os-scrollbar-vertical,
-.os-theme-spotify,
-[class*="os-scrollbar"],
-[data-overlayscrollbars] > .os-scrollbar,
-[data-overlayscrollbars-viewport]::-webkit-scrollbar {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-  width: 0 !important;
-  height: 0 !important;
-}
-
-/* 4. Ngăn chặn tuyệt đối hiện tượng rò rỉ thanh cuộn ngang (Horizontal Overflow Leak) */
-html,
-body,
-#main,
-.Root,
-.Root__top-container,
-.Root__main-view,
-.main-view-container,
-.main-view-container__scroll-node,
-.main-view-container__scroll-node-child {
-  overflow-x: hidden !important;
-}
-
-/* ==========================================================================
-   11. BA CHẾ ĐỘ TRONG SUỐT SPATIAL GLASSMORPHISM (ALT + T)
-   ========================================================================== */
-body.we-mode-pure .main-view-container__scroll-node-child {
-  background-color: transparent !important;
-}
-
-body.we-mode-contrast [data-testid="tracklist-row"],
-body.we-mode-contrast .main-trackList-trackListRow,
-body.we-mode-contrast [data-encore-id="card"] {
-  background-color: rgba(0, 0, 0, 0.18) !important;
-}
-
-body.we-mode-frosted #Desktop_LeftSidebar_Id,
-body.we-mode-frosted .Root__right-sidebar,
-body.we-mode-frosted [data-testid="now-playing-bar"],
-body.we-mode-frosted [data-encore-id="card"],
-body.we-mode-frosted [data-testid="playlist-tracklist"] {
-  background-color: rgba(16, 16, 22, 0.32) !important;
-  backdrop-filter: blur(14px) saturate(160%) !important;
-  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.10) !important;
-  border-radius: 12px !important;
-}
-
-/* ==========================================================================
-   12. ĐẢM BẢO Z-INDEX LỚP NỀN WALLPAPER ENGINE
-   ========================================================================== */
 #main {
   position: relative !important;
   z-index: 1 !important;

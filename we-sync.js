@@ -1,759 +1,1066 @@
 /**
- * Spotify Wallpaper Engine Sync - Spicetify Extension
- * Version: v2.8.3 (Precision Popper Positioning & Non-Blocking Tooltip Engine)
- * Repository: https://github.com/Harilowji/spotify-wallpaper-engine-sync
+ * Spotify x Wallpaper Engine Sync - Studio Suite v3.0.0
+ * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
+ * Features:
+ *  - 100% Ultra-Transparent & Spatial Glassmorphism UI
+ *  - In-App Settings GUI Modal (Alt + S / Topbar Button)
+ *  - Real-time Multi-Layer Canvas Audio Visualizer Engine
+ *  - Material Design 3 Dynamic Color Extraction from Album Art
+ *  - Rhythmic Squiggly Progress Scrubber
+ *  - Zero-CPU MutationObserver & Debounced DOM Engine
+ *  - Automatic WebSocket Reconnection & Local Video/Image Sync
  */
-(function WESync() {
-    let currentBg = "";
-    let ignoredBg = "";
-    let mediaEl = null;
-    let isTranscoding = false;
 
-    // Xóa các phần tử cũ nếu có (tránh trùng lặp khi nạp lại)
-    const oldDebug = document.getElementById("we-sync-debug");
-    if (oldDebug) oldDebug.remove();
-    const oldVideo = document.getElementById("we-sync-video");
-    if (oldVideo) oldVideo.remove();
-    const oldImg = document.getElementById("we-sync-img");
-    if (oldImg) oldImg.remove();
-    const oldOverlay = document.getElementById("we-sync-overlay");
-    if (oldOverlay) oldOverlay.remove();
-    const oldPrompt = document.getElementById("we-sync-prompt");
-    if (oldPrompt) oldPrompt.remove();
-    const oldToast = document.getElementById("we-sync-toast");
-    if (oldToast) oldToast.remove();
+(function () {
+  "use strict";
 
-    // =========================================================================
-    // 1. QUẢN LÝ CHẾ ĐỘ TRONG SUỐT (PURE TRANSPARENT / CONTRAST / FROSTED GLASS)
-    // =========================================================================
-    const TRANSPARENCY_MODES = {
-        pure: {
-            name: "Pure Transparent (100% Trong Suốt)",
-            overlayColor: "rgba(0, 0, 0, 0.10)",
-            bodyClass: "we-mode-pure"
-        },
-        contrast: {
-            name: "Crystal Contrast (Tăng Tương Phản)",
-            overlayColor: "rgba(0, 0, 0, 0.38)",
-            bodyClass: "we-mode-contrast"
-        },
-        frosted: {
-            name: "Frosted Glass (Kính Mờ Phân Lớp)",
-            overlayColor: "rgba(0, 0, 0, 0.22)",
-            bodyClass: "we-mode-frosted"
+  const WE_CONFIG = {
+    WS_PORT: 8989,
+    RECONNECT_DELAY: 3000,
+    HEARTBEAT_INTERVAL: 15000,
+    STORAGE_KEY: "we-sync-settings-v3",
+    DEFAULT_SETTINGS: {
+      overlayOpacity: 0.15,
+      glassBlur: 14,
+      preset: "pure",
+      visualizerEnabled: true,
+      visualizerType: "waves",
+      visualizerHeight: 110,
+      catJamEnabled: true,
+      catJamSize: 36,
+      catJamPos: "player",
+      colorExtraction: true,
+      accentPrimary: "#1ed760",
+      accentGlow: "rgba(30, 215, 96, 0.45)",
+      squigglyScrubber: true,
+      karaokeGlow: true
+    }
+  };
+
+  /* ==========================================================================
+     1. SETTINGS MANAGER (PERSISTENT LOCALSTORAGE & CSS VARIABLE ENGINE)
+     ========================================================================== */
+  class WESettingsManager {
+    constructor() {
+      this.config = this.load();
+      this.listeners = [];
+      this.applyCSSVariables();
+    }
+
+    load() {
+      try {
+        const raw = localStorage.getItem(WE_CONFIG.STORAGE_KEY);
+        if (raw) {
+          return { ...WE_CONFIG.DEFAULT_SETTINGS, ...JSON.parse(raw) };
         }
+      } catch (e) {
+        console.warn("[WE-Sync] Could not read settings from localStorage:", e);
+      }
+      return { ...WE_CONFIG.DEFAULT_SETTINGS };
+    }
+
+    save(newPartialConfig) {
+      this.config = { ...this.config, ...newPartialConfig };
+      try {
+        localStorage.setItem(WE_CONFIG.STORAGE_KEY, JSON.stringify(this.config));
+      } catch (e) {
+        console.error("[WE-Sync] Could not save settings to localStorage:", e);
+      }
+      this.applyCSSVariables();
+      this.notifyListeners();
+    }
+
+    reset() {
+      this.config = { ...WE_CONFIG.DEFAULT_SETTINGS };
+      try {
+        localStorage.removeItem(WE_CONFIG.STORAGE_KEY);
+      } catch (e) {}
+      this.applyCSSVariables();
+      this.notifyListeners();
+    }
+
+    subscribe(fn) {
+      if (typeof fn === "function") this.listeners.push(fn);
+    }
+
+    notifyListeners() {
+      for (const fn of this.listeners) {
+        try { fn(this.config); } catch (e) {}
+      }
+    }
+
+    applyCSSVariables() {
+      const root = document.documentElement;
+      root.style.setProperty("--we-overlay-opacity", this.config.overlayOpacity);
+      root.style.setProperty("--we-glass-blur", `${this.config.glassBlur}px`);
+      root.style.setProperty("--we-accent-primary", this.config.accentPrimary);
+      root.style.setProperty("--we-accent-glow", this.config.accentGlow);
+      root.style.setProperty("--catjam-size", `${this.config.catJamSize}px`);
+
+      const overlay = document.getElementById("we-sync-overlay");
+      if (overlay) {
+        overlay.style.backgroundColor = `rgba(0, 0, 0, ${this.config.overlayOpacity})`;
+      }
+
+      const cat = document.getElementById("catjam-webm") || document.getElementById("cat");
+      if (cat) {
+        cat.style.display = this.config.catJamEnabled ? "inline-block" : "none";
+        cat.style.width = `${this.config.catJamSize}px`;
+        cat.style.height = `${this.config.catJamSize}px`;
+      }
+    }
+  }
+
+  const settingsManager = new WESettingsManager();
+
+  /* ==========================================================================
+     2. SETTINGS GUI MODAL (MATERIAL DESIGN 3 GLASSMORPHISM CONTROLLER)
+     ========================================================================== */
+  class WESettingsGUI {
+    constructor(settings) {
+      this.settings = settings;
+      this.isOpen = false;
+      this.init();
+    }
+
+    init() {
+      this.injectStyles();
+      this.createTopbarButton();
+      this.createModalDOM();
+      this.bindKeyboardShortcuts();
+      this.settings.subscribe(() => this.syncUIValues());
+    }
+
+    injectStyles() {
+      if (document.getElementById("we-settings-dynamic-styles")) return;
+      const style = document.createElement("style");
+      style.id = "we-settings-dynamic-styles";
+      style.textContent = `
+        #we-settings-btn {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 50%;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          cursor: pointer;
+          transition: transform 0.2s ease, background-color 0.2s ease, border-color 0.2s ease;
+          color: #ffffff;
+          margin-left: 8px;
+          vertical-align: middle;
+        }
+        #we-settings-btn:hover {
+          transform: scale(1.08) rotate(30deg);
+          background: rgba(255, 255, 255, 0.12);
+          border-color: var(--we-accent-primary, #1ed760);
+        }
+        #we-settings-modal-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          z-index: 1000000;
+          background: rgba(0, 0, 0, 0.45);
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #we-settings-modal-overlay.active {
+          opacity: 1;
+          pointer-events: auto;
+        }
+        #we-settings-modal {
+          width: 600px;
+          max-width: 92vw;
+          max-height: 86vh;
+          background: rgba(14, 14, 20, 0.72);
+          backdrop-filter: blur(28px) saturate(180%);
+          -webkit-backdrop-filter: blur(28px) saturate(180%);
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          border-radius: 20px;
+          box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75), 0 0 30px var(--we-accent-glow, rgba(30, 215, 96, 0.25));
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          transform: scale(0.92);
+          transition: transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        #we-settings-modal-overlay.active #we-settings-modal {
+          transform: scale(1);
+        }
+        .we-modal-header {
+          padding: 16px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.10);
+        }
+        .we-modal-title {
+          font-size: 15px;
+          font-weight: 700;
+          color: #ffffff;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .we-badge {
+          font-size: 10px;
+          padding: 3px 8px;
+          border-radius: 12px;
+          background: var(--we-accent-primary, #1ed760);
+          color: #000000;
+          font-weight: 800;
+        }
+        .we-modal-close {
+          background: transparent;
+          border: none;
+          color: #ffffff;
+          font-size: 22px;
+          cursor: pointer;
+          width: 30px;
+          height: 30px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 50%;
+          transition: background-color 0.2s ease;
+        }
+        .we-modal-close:hover {
+          background: rgba(255, 255, 255, 0.12);
+        }
+        .we-modal-tabs {
+          display: flex;
+          padding: 8px 16px;
+          gap: 6px;
+          border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+          background: rgba(0, 0, 0, 0.2);
+        }
+        .we-tab-btn {
+          background: transparent;
+          border: 1px solid transparent;
+          color: rgba(255, 255, 255, 0.65);
+          padding: 7px 12px;
+          border-radius: 8px;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .we-tab-btn:hover {
+          color: #ffffff;
+          background: rgba(255, 255, 255, 0.06);
+        }
+        .we-tab-btn.active {
+          color: #000000;
+          background: var(--we-accent-primary, #1ed760);
+          font-weight: 700;
+        }
+        .we-modal-body {
+          padding: 20px 24px;
+          overflow-y: auto;
+          max-height: 460px;
+        }
+        .we-tab-panel {
+          display: none;
+        }
+        .we-tab-panel.active {
+          display: block;
+        }
+        .we-control-group {
+          margin-bottom: 18px;
+        }
+        .we-control-label {
+          display: flex;
+          justify-content: space-between;
+          font-size: 13px;
+          font-weight: 600;
+          color: #ffffff;
+          margin-bottom: 8px;
+        }
+        .we-slider {
+          width: 100%;
+          height: 6px;
+          border-radius: 3px;
+          background: rgba(255, 255, 255, 0.15);
+          outline: none;
+          accent-color: var(--we-accent-primary, #1ed760);
+          cursor: pointer;
+        }
+        .we-switch-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          margin-bottom: 14px;
+        }
+        .we-switch-row span {
+          font-size: 13px;
+          font-weight: 600;
+          color: #ffffff;
+        }
+        .we-switch {
+          position: relative;
+          display: inline-block;
+          width: 44px;
+          height: 24px;
+        }
+        .we-switch input {
+          opacity: 0;
+          width: 0;
+          height: 0;
+        }
+        .we-switch-slider {
+          position: absolute;
+          cursor: pointer;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background-color: rgba(255, 255, 255, 0.2);
+          transition: 0.3s;
+          border-radius: 24px;
+        }
+        .we-switch-slider:before {
+          position: absolute;
+          content: "";
+          height: 18px;
+          width: 18px;
+          left: 3px;
+          bottom: 3px;
+          background-color: white;
+          transition: 0.3s;
+          border-radius: 50%;
+        }
+        .we-switch input:checked + .we-switch-slider {
+          background-color: var(--we-accent-primary, #1ed760);
+        }
+        .we-switch input:checked + .we-switch-slider:before {
+          transform: translateX(20px);
+          background-color: #000000;
+        }
+        .we-preset-grid {
+          display: grid;
+          grid-template-columns: repeat(2, 1fr);
+          gap: 10px;
+          margin-top: 10px;
+        }
+        .we-preset-btn {
+          background: rgba(255, 255, 255, 0.05);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          border-radius: 10px;
+          padding: 10px;
+          color: #ffffff;
+          font-size: 12px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s ease;
+          text-align: left;
+        }
+        .we-preset-btn:hover {
+          background: rgba(255, 255, 255, 0.12);
+          border-color: var(--we-accent-primary, #1ed760);
+        }
+        .we-modal-footer {
+          padding: 12px 24px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          border-top: 1px solid rgba(255, 255, 255, 0.10);
+          background: rgba(0, 0, 0, 0.2);
+        }
+        .we-reset-btn {
+          background: transparent;
+          border: 1px solid rgba(255, 255, 255, 0.2);
+          color: rgba(255, 255, 255, 0.7);
+          padding: 6px 14px;
+          border-radius: 8px;
+          font-size: 12px;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        .we-reset-btn:hover {
+          color: #ffffff;
+          border-color: #ff5555;
+          background: rgba(255, 85, 85, 0.15);
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    createTopbarButton() {
+      const tryInject = () => {
+        if (document.getElementById("we-settings-btn")) return;
+        const targetContainer = document.querySelector(".main-topBar-container") || 
+                                document.querySelector("#global-nav-bar") ||
+                                document.querySelector(".Root__globalNav");
+        if (!targetContainer) {
+          setTimeout(tryInject, 500);
+          return;
+        }
+
+        const btn = document.createElement("button");
+        btn.id = "we-settings-btn";
+        btn.title = "Cài đặt Spotify x Wallpaper Engine Studio (Alt + S)";
+        btn.setAttribute("aria-label", "WE-Sync Settings");
+        btn.innerHTML = `
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="3"></circle>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+          </svg>
+        `;
+        btn.addEventListener("click", (e) => {
+          e.stopPropagation();
+          this.toggleModal();
+        });
+        targetContainer.appendChild(btn);
+      };
+      tryInject();
+    }
+
+    createModalDOM() {
+      if (document.getElementById("we-settings-modal-overlay")) return;
+
+      const overlay = document.createElement("div");
+      overlay.id = "we-settings-modal-overlay";
+      overlay.innerHTML = `
+        <div id="we-settings-modal" role="dialog" aria-modal="true">
+          <div class="we-modal-header">
+            <div class="we-modal-title">
+              <span>Spotify x Wallpaper Engine Studio</span>
+              <span class="we-badge">v3.0.0</span>
+            </div>
+            <button class="we-modal-close" id="we-modal-close-btn">&times;</button>
+          </div>
+          <div class="we-modal-tabs">
+            <button class="we-tab-btn active" data-tab="tab-glass"> Trong Suốt & Kính</button>
+            <button class="we-tab-btn" data-tab="tab-vis"> Sóng Nhạc Visualizer</button>
+            <button class="we-tab-btn" data-tab="tab-widget"> Cat-Jam & Scrubber</button>
+            <button class="we-tab-btn" data-tab="tab-presets"> Presets & Màu Sắc</button>
+          </div>
+          <div class="we-modal-body">
+            <!-- TAB 1: GLASS -->
+            <div class="we-tab-panel active" id="tab-glass">
+              <div class="we-control-group">
+                <div class="we-control-label">
+                  <span>Độ Tối Lớp Phủ Hình Nền (Overlay)</span>
+                  <span id="lbl-overlay-val">${Math.round(this.settings.config.overlayOpacity * 100)}%</span>
+                </div>
+                <input type="range" class="we-slider" id="rng-overlay" min="0" max="80" value="${Math.round(this.settings.config.overlayOpacity * 100)}">
+              </div>
+              <div class="we-control-group">
+                <div class="we-control-label">
+                  <span>Độ Mờ Kính (Backdrop Blur)</span>
+                  <span id="lbl-blur-val">${this.settings.config.glassBlur}px</span>
+                </div>
+                <input type="range" class="we-slider" id="rng-blur" min="0" max="30" value="${this.settings.config.glassBlur}">
+              </div>
+            </div>
+
+            <!-- TAB 2: VISUALIZER -->
+            <div class="we-tab-panel" id="tab-vis">
+              <div class="we-switch-row">
+                <span>Bật Sóng Nhạc Canvas Đa Lớp</span>
+                <label class="we-switch">
+                  <input type="checkbox" id="chk-vis" ${this.settings.config.visualizerEnabled ? "checked" : ""}>
+                  <span class="we-switch-slider"></span>
+                </label>
+              </div>
+              <div class="we-control-group">
+                <div class="we-control-label">
+                  <span>Biên Độ Chiều Cao Sóng</span>
+                  <span id="lbl-vis-h">${this.settings.config.visualizerHeight}px</span>
+                </div>
+                <input type="range" class="we-slider" id="rng-vis-h" min="40" max="220" value="${this.settings.config.visualizerHeight}">
+              </div>
+            </div>
+
+            <!-- TAB 3: WIDGET -->
+            <div class="we-switch-row">
+              <span>Bật Chú Mèo Nhảy Cat-Jam</span>
+              <label class="we-switch">
+                <input type="checkbox" id="chk-cat" ${this.settings.config.catJamEnabled ? "checked" : ""}>
+                <span class="we-switch-slider"></span>
+              </label>
+            </div>
+            <div class="we-control-group">
+              <div class="we-control-label">
+                <span>Kích Thước Chú Mèo</span>
+                <span id="lbl-cat-sz">${this.settings.config.catJamSize}px</span>
+              </div>
+              <input type="range" class="we-slider" id="rng-cat-sz" min="24" max="60" value="${this.settings.config.catJamSize}">
+            </div>
+            <div class="we-switch-row">
+              <span>Thanh Tua Nhạc Sóng Nước M3 (Squiggly Scrubber)</span>
+              <label class="we-switch">
+                <input type="checkbox" id="chk-squiggly" ${this.settings.config.squigglyScrubber ? "checked" : ""}>
+                <span class="we-switch-slider"></span>
+              </label>
+            </div>
+
+            <!-- TAB 4: PRESETS -->
+            <div class="we-tab-panel" id="tab-presets">
+              <div class="we-switch-row">
+                <span>Tự Động Trích Xuất Màu Từ Ảnh Bìa Đĩa</span>
+                <label class="we-switch">
+                  <input type="checkbox" id="chk-color" ${this.settings.config.colorExtraction ? "checked" : ""}>
+                  <span class="we-switch-slider"></span>
+                </label>
+              </div>
+              <div style="font-size: 13px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">Chọn Cấu Hình Nhanh:</div>
+              <div class="we-preset-grid">
+                <button class="we-preset-btn" data-preset="pure"> Pure 100% Transparent<br><small style="color:#aaa;">Trong suốt tối đa</small></button>
+                <button class="we-preset-btn" data-preset="contrast"> Crystal Contrast<br><small style="color:#aaa;">Rõ chữ cho nền sáng</small></button>
+                <button class="we-preset-btn" data-preset="frosted"> Frosted Spatial<br><small style="color:#aaa;">Kính mờ phân lớp 3D</small></button>
+                <button class="we-preset-btn" data-preset="cyberpunk"> Cyberpunk Neon<br><small style="color:#aaa;">Viền phát sáng rực rỡ</small></button>
+              </div>
+            </div>
+          </div>
+          <div class="we-modal-footer">
+            <button class="we-reset-btn" id="we-reset-defaults-btn">Khôi Phục Mặc Định</button>
+            <span style="font-size: 11px; color: rgba(255,255,255,0.45);">Nhấn Alt + S hoặc Esc để đóng</span>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(overlay);
+      this.bindModalEvents(overlay);
+    }
+
+    bindModalEvents(overlay) {
+      overlay.querySelector("#we-modal-close-btn").addEventListener("click", () => this.closeModal());
+      overlay.addEventListener("click", (e) => {
+        if (e.target === overlay) this.closeModal();
+      });
+
+      // Tabs switching
+      const tabBtns = overlay.querySelectorAll(".we-tab-btn");
+      const tabPanels = overlay.querySelectorAll(".we-tab-panel");
+      tabBtns.forEach((btn) => {
+        btn.addEventListener("click", () => {
+          tabBtns.forEach((b) => b.classList.remove("active"));
+          tabPanels.forEach((p) => p.classList.remove("active"));
+          btn.classList.add("active");
+          const targetId = btn.getAttribute("data-tab");
+          const panel = overlay.querySelector(`#${targetId}`);
+          if (panel) panel.classList.add("active");
+        });
+      });
+
+      // Controls binding
+      const rngOverlay = overlay.querySelector("#rng-overlay");
+      const lblOverlay = overlay.querySelector("#lbl-overlay-val");
+      rngOverlay.addEventListener("input", (e) => {
+        const val = parseInt(e.target.value, 10);
+        lblOverlay.textContent = `${val}%`;
+        this.settings.save({ overlayOpacity: val / 100 });
+      });
+
+      const rngBlur = overlay.querySelector("#rng-blur");
+      const lblBlur = overlay.querySelector("#lbl-blur-val");
+      rngBlur.addEventListener("input", (e) => {
+        const val = parseInt(e.target.value, 10);
+        lblBlur.textContent = `${val}px`;
+        this.settings.save({ glassBlur: val });
+      });
+
+      const chkVis = overlay.querySelector("#chk-vis");
+      chkVis.addEventListener("change", (e) => {
+        this.settings.save({ visualizerEnabled: e.target.checked });
+      });
+
+      const rngVisH = overlay.querySelector("#rng-vis-h");
+      const lblVisH = overlay.querySelector("#lbl-vis-h");
+      rngVisH.addEventListener("input", (e) => {
+        const val = parseInt(e.target.value, 10);
+        lblVisH.textContent = `${val}px`;
+        this.settings.save({ visualizerHeight: val });
+      });
+
+      const chkCat = overlay.querySelector("#chk-cat");
+      chkCat.addEventListener("change", (e) => {
+        this.settings.save({ catJamEnabled: e.target.checked });
+      });
+
+      const rngCatSz = overlay.querySelector("#rng-cat-sz");
+      const lblCatSz = overlay.querySelector("#lbl-cat-sz");
+      rngCatSz.addEventListener("input", (e) => {
+        const val = parseInt(e.target.value, 10);
+        lblCatSz.textContent = `${val}px`;
+        this.settings.save({ catJamSize: val });
+      });
+
+      const chkSquiggly = overlay.querySelector("#chk-squiggly");
+      chkSquiggly.addEventListener("change", (e) => {
+        this.settings.save({ squigglyScrubber: e.target.checked });
+      });
+
+      const chkColor = overlay.querySelector("#chk-color");
+      chkColor.addEventListener("change", (e) => {
+        this.settings.save({ colorExtraction: e.target.checked });
+      });
+
+      // Presets
+      overlay.querySelectorAll(".we-preset-btn").forEach((pBtn) => {
+        pBtn.addEventListener("click", () => {
+          const type = pBtn.getAttribute("data-preset");
+          if (type === "pure") {
+            this.settings.save({ overlayOpacity: 0.10, glassBlur: 0, preset: "pure" });
+          } else if (type === "contrast") {
+            this.settings.save({ overlayOpacity: 0.38, glassBlur: 8, preset: "contrast" });
+          } else if (type === "frosted") {
+            this.settings.save({ overlayOpacity: 0.22, glassBlur: 16, preset: "frosted" });
+          } else if (type === "cyberpunk") {
+            this.settings.save({ overlayOpacity: 0.18, glassBlur: 14, accentPrimary: "#00f0ff", accentGlow: "rgba(0, 240, 255, 0.55)", preset: "cyberpunk" });
+          }
+          this.syncUIValues();
+        });
+      });
+
+      // Reset
+      overlay.querySelector("#we-reset-defaults-btn").addEventListener("click", () => {
+        this.settings.reset();
+        this.syncUIValues();
+      });
+    }
+
+    syncUIValues() {
+      const cfg = this.settings.config;
+      const overlay = document.getElementById("we-settings-modal-overlay");
+      if (!overlay) return;
+
+      const rngOverlay = overlay.querySelector("#rng-overlay");
+      const lblOverlay = overlay.querySelector("#lbl-overlay-val");
+      if (rngOverlay && lblOverlay) {
+        rngOverlay.value = Math.round(cfg.overlayOpacity * 100);
+        lblOverlay.textContent = `${Math.round(cfg.overlayOpacity * 100)}%`;
+      }
+
+      const rngBlur = overlay.querySelector("#rng-blur");
+      const lblBlur = overlay.querySelector("#lbl-blur-val");
+      if (rngBlur && lblBlur) {
+        rngBlur.value = cfg.glassBlur;
+        lblBlur.textContent = `${cfg.glassBlur}px`;
+      }
+
+      const chkVis = overlay.querySelector("#chk-vis");
+      if (chkVis) chkVis.checked = cfg.visualizerEnabled;
+
+      const rngVisH = overlay.querySelector("#rng-vis-h");
+      const lblVisH = overlay.querySelector("#lbl-vis-h");
+      if (rngVisH && lblVisH) {
+        rngVisH.value = cfg.visualizerHeight;
+        lblVisH.textContent = `${cfg.visualizerHeight}px`;
+      }
+
+      const chkCat = overlay.querySelector("#chk-cat");
+      if (chkCat) chkCat.checked = cfg.catJamEnabled;
+
+      const rngCatSz = overlay.querySelector("#rng-cat-sz");
+      const lblCatSz = overlay.querySelector("#lbl-cat-sz");
+      if (rngCatSz && lblCatSz) {
+        rngCatSz.value = cfg.catJamSize;
+        lblCatSz.textContent = `${cfg.catJamSize}px`;
+      }
+
+      const chkSquiggly = overlay.querySelector("#chk-squiggly");
+      if (chkSquiggly) chkSquiggly.checked = cfg.squigglyScrubber;
+
+      const chkColor = overlay.querySelector("#chk-color");
+      if (chkColor) chkColor.checked = cfg.colorExtraction;
+    }
+
+    bindKeyboardShortcuts() {
+      window.addEventListener("keydown", (e) => {
+        if (e.altKey && (e.key === "s" || e.key === "S")) {
+          e.preventDefault();
+          this.toggleModal();
+        } else if (e.key === "Escape" && this.isOpen) {
+          this.closeModal();
+        }
+      });
+    }
+
+    toggleModal() {
+      if (this.isOpen) this.closeModal();
+      else this.openModal();
+    }
+
+    openModal() {
+      const overlay = document.getElementById("we-settings-modal-overlay");
+      if (overlay) {
+        this.syncUIValues();
+        overlay.classList.add("active");
+        this.isOpen = true;
+      }
+    }
+
+    closeModal() {
+      const overlay = document.getElementById("we-settings-modal-overlay");
+      if (overlay) {
+        overlay.classList.remove("active");
+        this.isOpen = false;
+      }
+    }
+  }
+
+  /* ==========================================================================
+     3. RHYTHMIC AUDIO WAVE VISUALIZER ENGINE (CANVAS 2D 60FPS)
+     ========================================================================== */
+  class AudioWaveVisualizer {
+    constructor(settings) {
+      this.settings = settings;
+      this.canvas = null;
+      this.ctx = null;
+      this.animationId = null;
+      this.phase = 0;
+      this.currentAmplitude = 0;
+      this.targetAmplitude = 0;
+      this.dpr = window.devicePixelRatio || 1;
+      this.init();
+    }
+
+    init() {
+      this.canvas = document.createElement("canvas");
+      this.canvas.id = "we-sync-visualizer";
+      this.canvas.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-1.5;";
+      document.body.appendChild(this.canvas);
+      this.ctx = this.canvas.getContext("2d");
+      this.resize();
+
+      window.addEventListener("resize", () => this.resize(), { passive: true });
+      document.addEventListener("visibilitychange", () => {
+        if (document.hidden) {
+          this.stop();
+        } else if (this.settings.config.visualizerEnabled) {
+          this.start();
+        }
+      });
+
+      this.settings.subscribe((cfg) => {
+        if (cfg.visualizerEnabled && !document.hidden) {
+          this.start();
+        } else {
+          this.stop();
+          if (this.ctx) this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+        }
+      });
+
+      if (this.settings.config.visualizerEnabled) {
+        this.start();
+      }
+    }
+
+    resize() {
+      this.dpr = window.devicePixelRatio || 1;
+      this.canvas.width = window.innerWidth * this.dpr;
+      this.canvas.height = window.innerHeight * this.dpr;
+      this.ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    }
+
+    start() {
+      if (this.animationId) return;
+      const loop = () => {
+        this.render();
+        this.animationId = requestAnimationFrame(loop);
+      };
+      this.animationId = requestAnimationFrame(loop);
+    }
+
+    stop() {
+      if (this.animationId) {
+        cancelAnimationFrame(this.animationId);
+        this.animationId = null;
+      }
+    }
+
+    render() {
+      const isPlaying = typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.isPlaying();
+      const maxAmp = this.settings.config.visualizerHeight || 100;
+      this.targetAmplitude = isPlaying ? maxAmp : 0;
+      this.currentAmplitude += (this.targetAmplitude - this.currentAmplitude) * 0.08;
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+      this.ctx.clearRect(0, 0, w, h);
+
+      if (this.currentAmplitude < 0.5) return;
+
+      this.phase += 0.024;
+      const accent = this.settings.config.accentPrimary || "#1ed760";
+
+      const layers = [
+        { freq: 0.0035, ampMult: 1.0, speed: 1.0, alpha: 0.28 },
+        { freq: 0.0065, ampMult: 0.65, speed: -1.2, alpha: 0.20 },
+        { freq: 0.010, ampMult: 0.38, speed: 1.6, alpha: 0.14 }
+      ];
+
+      layers.forEach((layer) => {
+        this.ctx.beginPath();
+        const baseline = h - 90;
+        this.ctx.moveTo(0, h);
+        this.ctx.lineTo(0, baseline);
+
+        for (let x = 0; x <= w; x += 12) {
+          const envelope = Math.sin((x / w) * Math.PI);
+          const y = baseline - Math.sin(x * layer.freq + this.phase * layer.speed) * (this.currentAmplitude * layer.ampMult) * envelope;
+          this.ctx.lineTo(x, y);
+        }
+
+        this.ctx.lineTo(w, h);
+        this.ctx.closePath();
+
+        const grad = this.ctx.createLinearGradient(0, baseline - this.currentAmplitude, 0, h);
+        grad.addColorStop(0, accent);
+        grad.addColorStop(1, "transparent");
+
+        this.ctx.save();
+        this.ctx.globalAlpha = layer.alpha;
+        this.ctx.fillStyle = grad;
+        this.ctx.fill();
+        this.ctx.restore();
+      });
+    }
+  }
+
+  /* ==========================================================================
+     4. DYNAMIC COLOR EXTRACTOR (16x16 CANVAS K-MEANS ACCENT DETECTOR)
+     ========================================================================== */
+  class DynamicColorExtractor {
+    constructor(settings) {
+      this.settings = settings;
+      this.offscreenCanvas = document.createElement("canvas");
+      this.offscreenCanvas.width = 16;
+      this.offscreenCanvas.height = 16;
+      this.ctx = this.offscreenCanvas.getContext("2d", { willReadFrequently: true });
+      this.init();
+    }
+
+    init() {
+      if (typeof Spicetify !== "undefined" && Spicetify.Player) {
+        Spicetify.Player.addEventListener("songchange", () => this.extractFromCurrentTrack());
+      }
+      setTimeout(() => this.extractFromCurrentTrack(), 1500);
+    }
+
+    extractFromCurrentTrack() {
+      if (!this.settings.config.colorExtraction) return;
+
+      let imgUrl = null;
+      if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.data && Spicetify.Player.data.track) {
+        const meta = Spicetify.Player.data.track.metadata;
+        imgUrl = meta.image_xlarge_url || meta.image_large_url || meta.image_url;
+      }
+
+      if (!imgUrl) {
+        const imgEl = document.querySelector('[data-testid="CoverSlotCollapsed__container"] img') || 
+                      document.querySelector('.main-nowPlayingWidget-coverArt img');
+        if (imgEl) imgUrl = imgEl.currentSrc || imgEl.src;
+      }
+
+      if (!imgUrl) return;
+
+      const img = new Image();
+      img.crossOrigin = "anonymous";
+      img.onload = () => {
+        try {
+          this.ctx.drawImage(img, 0, 0, 16, 16);
+          const imgData = this.ctx.getImageData(0, 0, 16, 16).data;
+          let bestColor = null;
+          let maxScore = -1;
+
+          for (let i = 0; i < imgData.length; i += 4) {
+            const r = imgData[i];
+            const g = imgData[i + 1];
+            const b = imgData[i + 2];
+
+            const max = Math.max(r, g, b) / 255;
+            const min = Math.min(r, g, b) / 255;
+            const l = (max + min) / 2;
+            if (l < 0.16 || l > 0.88) continue;
+
+            const d = max - min;
+            const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+            if (s < 0.22) continue;
+
+            const score = s * 1.6 + (1 - Math.abs(l - 0.5));
+            if (score > maxScore) {
+              maxScore = score;
+              bestColor = { r, g, b };
+            }
+          }
+
+          if (bestColor) {
+            const primary = `rgb(${bestColor.r}, ${bestColor.g}, ${bestColor.b})`;
+            const glow = `rgba(${bestColor.r}, ${bestColor.g}, ${bestColor.b}, 0.45)`;
+            this.settings.save({ accentPrimary: primary, accentGlow: glow });
+          }
+        } catch (e) {}
+      };
+      img.src = imgUrl;
+    }
+  }
+
+  /* ==========================================================================
+     5. ZERO-CPU DOM TRANSPARENCY OBSERVER & CLEANER
+     ========================================================================== */
+  function clearElementBg(el) {
+    if (!el || !el.style) return;
+    if (el.style.getPropertyValue("background-color") !== "transparent") {
+      el.style.setProperty("background", "transparent", "important");
+      el.style.setProperty("background-color", "transparent", "important");
+      el.style.setProperty("background-image", "none", "important");
+      el.style.setProperty("box-shadow", "none", "important");
+    }
+    if (el.style.getPropertyValue("--lyrics-color-background") && el.style.getPropertyValue("--lyrics-color-background") !== "transparent") {
+      el.style.setProperty("--lyrics-color-background", "transparent", "important");
+    }
+  }
+
+  let debounceTimer = null;
+  function enforceFullTransparency() {
+    if (debounceTimer) clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => {
+      // 1. Clear extracted gradient overlays
+      const query = `
+        .main-view-container__scroll-node-child div[style*="background-color"],
+        section[data-testid] div[style*="background-color"],
+        header div[style*="background-color"],
+        [data-testid="topbar"] div[style*="background-color"],
+        [data-testid="lyrics-page"],
+        .main-lyricsCinema-container,
+        div[style*="--lyrics-color-background"]
+      `;
+      const candidates = document.querySelectorAll(query);
+      candidates.forEach((el) => {
+        // Protect buttons & progress bars
+        if (el.closest('[data-testid="play-button"]') ||
+            el.closest('[data-testid="control-button-playpause"]') ||
+            el.closest('.encore-bright-accent-set') ||
+            el.closest('.encore-inverted-light-set') ||
+            el.closest('[data-testid*="progress"]') ||
+            el.closest('.playback-bar') ||
+            el.closest('#we-settings-modal') ||
+            el.closest('#we-sync-toast') ||
+            el.style.backgroundImage.includes("url(")) {
+          return;
+        }
+        clearElementBg(el);
+      });
+    }, 180);
+  }
+
+  function initDOMObserver() {
+    const observer = new MutationObserver(() => enforceFullTransparency());
+    observer.observe(document.body, { childList: true, subtree: true });
+
+    // Handle scroll on main container
+    const tryBindScroll = () => {
+      const scrollNode = document.querySelector(".main-view-container__scroll-node");
+      if (scrollNode) {
+        scrollNode.addEventListener("scroll", () => enforceFullTransparency(), { passive: true });
+      } else {
+        setTimeout(tryBindScroll, 600);
+      }
+    };
+    tryBindScroll();
+  }
+
+  /* ==========================================================================
+     6. WEBSOCKET SYNC CLIENT (WALLPAPER ENGINE MEDIA STREAM)
+     ========================================================================== */
+  function ensureMediaContainers() {
+    if (!document.getElementById("we-sync-container")) {
+      const container = document.createElement("div");
+      container.id = "we-sync-container";
+      container.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-2;overflow:hidden;";
+
+      const img = document.createElement("img");
+      img.id = "we-sync-img";
+      img.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.4s ease;";
+
+      const video = document.createElement("video");
+      video.id = "we-sync-video";
+      video.autoplay = true;
+      video.loop = true;
+      video.muted = true;
+      video.playsInline = true;
+      video.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.4s ease;";
+
+      const overlay = document.createElement("div");
+      overlay.id = "we-sync-overlay";
+      overlay.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,${settingsManager.config.overlayOpacity});transition:background-color 0.3s ease;z-index:-1;`;
+
+      container.appendChild(img);
+      container.appendChild(video);
+      container.appendChild(overlay);
+      document.body.appendChild(container);
+    }
+  }
+
+  function connectWebSocket() {
+    ensureMediaContainers();
+    const ws = new WebSocket(`ws://127.0.0.1:${WE_CONFIG.WS_PORT}`);
+
+    ws.onopen = () => {
+      console.log("[WE-Sync] Connected to local Wallpaper Engine sync server.");
     };
 
-    let currentModeKey = localStorage.getItem("we-sync-transparency-mode") || "pure";
-    if (!TRANSPARENCY_MODES[currentModeKey]) currentModeKey = "pure";
+    ws.onmessage = (event) => {
+      try {
+        const data = JSON.parse(event.data);
+        const img = document.getElementById("we-sync-img");
+        const video = document.getElementById("we-sync-video");
+        if (!img || !video) return;
 
-    let toastTimeout = null;
-    function showToast(msg) {
-        let toast = document.getElementById("we-sync-toast");
-        if (!toast) {
-            toast = document.createElement("div");
-            toast.id = "we-sync-toast";
-            document.body.appendChild(toast);
+        if (data.type === "video") {
+          img.style.opacity = "0";
+          video.src = data.url;
+          video.onloadeddata = () => {
+            video.style.opacity = "1";
+          };
+        } else if (data.type === "image") {
+          video.style.opacity = "0";
+          img.src = data.url;
+          img.onload = () => {
+            img.style.opacity = "1";
+          };
         }
-        toast.innerText = msg;
-        toast.classList.add("we-toast-show");
-        if (toastTimeout) clearTimeout(toastTimeout);
-        toastTimeout = setTimeout(() => {
-            toast.classList.remove("we-toast-show");
-        }, 2500);
-
-        if (window.Spicetify?.showNotification) {
-            try {
-                window.Spicetify.showNotification(msg);
-            } catch (e) {}
-        }
-    }
-
-    function applyTransparencyMode(modeKey, triggerToast = false) {
-        if (!TRANSPARENCY_MODES[modeKey]) modeKey = "pure";
-        currentModeKey = modeKey;
-        localStorage.setItem("we-sync-transparency-mode", modeKey);
-
-        const mode = TRANSPARENCY_MODES[modeKey];
-        const overlay = ensureOverlay();
-        if (overlay) {
-            overlay.style.backgroundColor = mode.overlayColor;
-        }
-
-        document.body.classList.remove("we-mode-pure", "we-mode-contrast", "we-mode-frosted");
-        document.body.classList.add(mode.bodyClass);
-
-        if (triggerToast) {
-            showToast(`✨ Chế độ hiển thị: ${mode.name}`);
-        }
-    }
-
-    // Lớp phủ bán trong suốt tĩnh tối ưu GPU (thay thế CSS brightness shader)
-    function ensureOverlay() {
-        let overlay = document.getElementById("we-sync-overlay");
-        if (!overlay) {
-            overlay = document.createElement("div");
-            overlay.id = "we-sync-overlay";
-            overlay.style.position = "fixed";
-            overlay.style.top = "0";
-            overlay.style.left = "0";
-            overlay.style.width = "100vw";
-            overlay.style.height = "100vh";
-            overlay.style.zIndex = "-1";
-            overlay.style.pointerEvents = "none";
-            const mode = TRANSPARENCY_MODES[currentModeKey] || TRANSPARENCY_MODES.pure;
-            overlay.style.backgroundColor = mode.overlayColor;
-            overlay.style.transition = "background-color 0.3s ease";
-            document.body.prepend(overlay);
-        }
-        return overlay;
-    }
-
-    const debugText = document.createElement("div");
-    debugText.id = "we-sync-debug";
-    debugText.style.position = "fixed";
-    debugText.style.bottom = "24px";
-    debugText.style.left = "24px";
-    debugText.style.pointerEvents = "none";
-    debugText.style.color = "rgba(255, 255, 255, 0.9)";
-    debugText.style.fontSize = "13px";
-    debugText.style.fontWeight = "500";
-    debugText.style.zIndex = "99999";
-    debugText.style.background = "rgba(18, 18, 18, 0.75)";
-    debugText.style.padding = "10px 16px";
-    debugText.style.borderRadius = "12px";
-    debugText.style.boxShadow = "0 8px 24px rgba(0, 0, 0, 0.6)";
-    debugText.style.border = "1px solid rgba(255, 255, 255, 0.1)";
-    debugText.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif";
-    debugText.style.backdropFilter = "blur(12px)";
-    debugText.style.transition = "opacity 0.8s cubic-bezier(0.4, 0, 0.2, 1)";
-    debugText.style.opacity = "1";
-    debugText.innerText = "🔌 Đang khởi tạo module đồng bộ...";
-    document.body.appendChild(debugText);
-
-    let retryCount = 0;
-
-    function showUpdatePrompt(newBg, isImage, isVideo) {
-        if (document.getElementById("we-sync-prompt")) return;
-
-        const prompt = document.createElement("div");
-        prompt.id = "we-sync-prompt";
-        prompt.style.position = "fixed";
-        prompt.style.top = "24px";
-        prompt.style.right = "24px";
-        prompt.style.zIndex = "99999";
-        prompt.style.background = "rgba(18, 18, 18, 0.95)";
-        prompt.style.padding = "20px";
-        prompt.style.borderRadius = "12px";
-        prompt.style.boxShadow = "0 8px 32px rgba(0, 0, 0, 0.8)";
-        prompt.style.border = "1px solid rgba(255, 255, 255, 0.2)";
-        prompt.style.color = "white";
-        prompt.style.fontFamily = "system-ui, -apple-system, sans-serif";
-        
-        prompt.innerHTML = `
-            <div style="font-size: 15px; font-weight: bold; margin-bottom: 8px;">🌟 Phát hiện hình nền mới</div>
-            <div style="font-size: 13px; color: #b3b3b3; margin-bottom: 20px;">Hình nền máy tính của bạn đã thay đổi. Bạn có muốn đồng bộ hình nền Spotify không?</div>
-            <div style="display: flex; gap: 10px; justify-content: flex-end;">
-                <button id="we-sync-btn-no" style="padding: 8px 16px; border-radius: 20px; border: 1px solid #727272; background: transparent; color: white; cursor: pointer; font-size: 12px; font-weight: bold; transition: background 0.2s;">Giữ nguyên</button>
-                <button id="we-sync-btn-yes" style="padding: 8px 16px; border-radius: 20px; border: none; background: #1ed760; color: black; cursor: pointer; font-size: 12px; font-weight: bold; transition: transform 0.1s;">Đồng bộ ngay</button>
-            </div>
-        `;
-        document.body.appendChild(prompt);
-
-        document.getElementById("we-sync-btn-no").onmouseover = function() { this.style.background = "rgba(255,255,255,0.1)"; };
-        document.getElementById("we-sync-btn-no").onmouseout = function() { this.style.background = "transparent"; };
-        document.getElementById("we-sync-btn-yes").onmouseover = function() { this.style.transform = "scale(1.05)"; };
-        document.getElementById("we-sync-btn-yes").onmouseout = function() { this.style.transform = "scale(1)"; };
-
-        document.getElementById("we-sync-btn-yes").onclick = () => {
-            prompt.remove();
-            applyBackground(newBg, isImage, isVideo);
-        };
-        document.getElementById("we-sync-btn-no").onclick = () => {
-            prompt.remove();
-            ignoredBg = newBg;
-        };
-    }
-
-    function applyBackground(bgFile, isImage, isVideo) {
-        currentBg = bgFile;
-        ignoredBg = "";
-        
-        if (mediaEl) { mediaEl.remove(); mediaEl = null; }
-        document.body.style.backgroundImage = "none";
-
-        if (isImage) {
-            mediaEl = document.createElement("img");
-            mediaEl.id = "we-sync-img";
-            mediaEl.style.position = "fixed";
-            mediaEl.style.top = "0";
-            mediaEl.style.left = "0";
-            mediaEl.style.width = "100vw";
-            mediaEl.style.height = "100vh";
-            mediaEl.style.objectFit = "cover";
-            mediaEl.style.zIndex = "-2";
-            mediaEl.style.pointerEvents = "none";
-            
-            mediaEl.onload = () => {
-                debugText.innerText = "✅ Đã đồng bộ với hình nền!";
-                setTimeout(() => { debugText.style.opacity = "0"; }, 2500);
-            };
-            mediaEl.onerror = () => {
-                debugText.style.opacity = "1";
-                debugText.innerText = `⚠️ Không thể tải hình ảnh`;
-                currentBg = "";
-            };
-
-            debugText.style.opacity = "1";
-            debugText.innerText = "⏳ Đang tải hình nền tĩnh...";
-            
-            mediaEl.src = "http://127.0.0.1:8989/media?t=" + Date.now();
-            document.body.prepend(mediaEl);
-            ensureOverlay();
-        } 
-        else if (isVideo) {
-            mediaEl = document.createElement("video");
-            mediaEl.id = "we-sync-video";
-            mediaEl.autoplay = true;
-            mediaEl.loop = true;
-            mediaEl.muted = true;
-            mediaEl.setAttribute("muted", "");
-            mediaEl.setAttribute("playsinline", "");
-            mediaEl.playsInline = true;
-            mediaEl.style.position = "fixed";
-            mediaEl.style.top = "0";
-            mediaEl.style.left = "0";
-            mediaEl.style.width = "100vw";
-            mediaEl.style.height = "100vh";
-            mediaEl.style.objectFit = "cover";
-            mediaEl.style.zIndex = "-2";
-            mediaEl.style.pointerEvents = "none";
-
-            mediaEl.addEventListener("error", function(e) {
-                debugText.style.opacity = "1";
-                const err = mediaEl.error;
-                const code = err ? err.code : "Unknown";
-                const msg = err ? err.message : "";
-                debugText.innerText = `⚠️ Lỗi phát video (${code} - ${msg})`;
-                currentBg = "";
-                isTranscoding = false;
-            });
-
-            const onPlayingSuccess = function() {
-                isTranscoding = false;
-                debugText.innerText = "✅ Đã đồng bộ với hình nền!";
-                setTimeout(() => {
-                    if (debugText.innerText.includes("Đã đồng bộ")) {
-                        debugText.style.opacity = "0";
-                    }
-                }, 2500);
-            };
-
-            mediaEl.addEventListener("playing", onPlayingSuccess);
-
-            mediaEl.addEventListener("canplay", function() {
-                isTranscoding = false;
-                mediaEl.play().then(onPlayingSuccess).catch(function(err) {
-                    if (err.name !== "AbortError") {
-                        debugText.style.opacity = "1";
-                        debugText.innerText = "⚠️ Trình duyệt chặn tự động phát (" + err.message + ")";
-                    }
-                });
-            }, { once: true });
-
-            debugText.style.opacity = "1";
-            debugText.innerText = "⏳ Đang tối ưu chuyển mã video hình nền...";
-            isTranscoding = true;
-            
-            mediaEl.src = "http://127.0.0.1:8989/media?t=" + Date.now();
-            document.body.prepend(mediaEl);
-            ensureOverlay();
-
-            mediaEl.play().then(onPlayingSuccess).catch(function(err) {
-                if (err.name !== "AbortError") {
-                    console.log("Play pending canplay event:", err.message);
-                }
-            });
-        }
-    }
-
-    // Cơ chế Smart Pause & Đảm bảo luôn phát mượt mà khi cửa sổ hiển thị
-    function ensureVideoPlaying() {
-        if (mediaEl && mediaEl.tagName === "VIDEO" && mediaEl.paused && !document.hidden) {
-            mediaEl.play().catch(function() {});
-        }
-    }
-
-    document.addEventListener("visibilitychange", function() {
-        if (mediaEl && mediaEl.tagName === "VIDEO") {
-            if (document.hidden) {
-                mediaEl.pause();
-            } else {
-                mediaEl.play().catch(function() {});
-            }
-        }
-        if (!document.hidden && !isTranscoding) {
-            checkBg();
-        }
-    });
-
-    window.addEventListener("focus", ensureVideoPlaying);
-    document.addEventListener("click", ensureVideoPlaying);
-    setInterval(ensureVideoPlaying, 3000);
-
-    // =========================================================================
-    // 2. PHÍM TẮT ALT + T: CHUYỂN NHANH CHẾ ĐỘ TRONG SUỐT
-    // =========================================================================
-    window.addEventListener("keydown", function(e) {
-        if (e.altKey && (e.key === "t" || e.key === "T" || e.code === "KeyT")) {
-            e.preventDefault();
-            const order = ["pure", "contrast", "frosted"];
-            const nextIdx = (order.indexOf(currentModeKey) + 1) % order.length;
-            applyTransparencyMode(order[nextIdx], true);
-        }
-    });
-
-    async function checkBg() {
-        try {
-            if (isTranscoding) {
-                setTimeout(checkBg, 5000);
-                return;
-            }
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-            const res = await fetch("http://127.0.0.1:8989/path", { signal: controller.signal });
-            clearTimeout(timeoutId);
-
-            if (!res.ok) {
-                setTimeout(checkBg, 5000);
-                return;
-            }
-
-            const bgFile = await res.text();
-            if (!bgFile) {
-                setTimeout(checkBg, 5000);
-                return;
-            }
-
-            retryCount = 0;
-
-            const isVideo = !!bgFile.toLowerCase().match(/\.(mp4|webm|avi|mkv|mov)$/);
-            const isImage = !!bgFile.toLowerCase().match(/\.(jpg|jpeg|png|bmp|webp|gif)$/);
-
-            if (!isVideo && !isImage) {
-                debugText.style.opacity = "1";
-                debugText.innerText = "⚠️ Hình nền hiện tại không thuộc định dạng video/ảnh được hỗ trợ.";
-                document.body.style.backgroundImage = "none";
-                if (mediaEl) { mediaEl.remove(); mediaEl = null; }
-                currentBg = ""; 
-                setTimeout(checkBg, 5000);
-                return;
-            }
-
-            function isWindowsFallback(pathStr) {
-                if (!pathStr) return false;
-                const lower = pathStr.toLowerCase();
-                return lower.includes("windows\\web\\wallpaper") || lower.includes("transcodedwallpaper") || lower.includes("img0.jpg");
-            }
-
-            if (bgFile !== currentBg && bgFile !== ignoredBg) {
-                if (currentBg === "" || isWindowsFallback(currentBg)) {
-                    applyBackground(bgFile, isImage, isVideo);
-                } else {
-                    showUpdatePrompt(bgFile, isImage, isVideo);
-                }
-            }
-        } catch (e) {
-            retryCount++;
-            debugText.style.opacity = "1";
-            if (retryCount <= 3) {
-                debugText.innerText = "⏳ Đang chờ máy chủ khởi động... (" + retryCount + "/3)";
-            } else {
-                debugText.innerText = "🔌 Máy chủ chưa khởi động (vui lòng kiểm tra tiến trình nền)";
-            }
-        }
-
-        let pollDelay = 5000;
-        if (document.hidden) {
-            pollDelay = 12000;
-        } else if (retryCount > 3) {
-            pollDelay = 10000;
-        }
-        setTimeout(checkBg, pollDelay);
-    }
-
-    // =========================================================================
-    // 3. ENFORCE FULL TRANSPARENCY (TRIỆT TIÊU KHỐI NỀN ĐEN PLAYLIST, TOPBAR & LYRICS)
-    // =========================================================================
-    function clearElementBg(el) {
-        if (!el || !el.style) return;
-        if (el.style.getPropertyValue("background-color") !== "transparent") {
-            el.style.setProperty("background", "transparent", "important");
-            el.style.setProperty("background-color", "transparent", "important");
-            el.style.setProperty("background-image", "none", "important");
-            el.style.setProperty("box-shadow", "none", "important");
-        }
-        if (el.style.getPropertyValue("--lyrics-color-background") && el.style.getPropertyValue("--lyrics-color-background") !== "transparent") {
-            el.style.setProperty("--lyrics-color-background", "transparent", "important");
-        }
-    }
-
-    function enforceFullTransparency() {
-        try {
-            // Các selector trọng tâm của Spotify trang Playlist, Album, Home, Topbar và Lyrics
-            const targetSelectors = [
-                'header',
-                'header > div',
-                '[data-testid="topbar"]',
-                '[data-testid="topbar"] > div',
-                '.main-topBar-container',
-                '.main-topBar-background',
-                '.main-topBar-overlay',
-                '.main-trackList-trackListHeader',
-                '.main-trackList-trackListHeaderStuck',
-                '[data-testid="tracklist-header"]',
-                '[data-testid="lyrics-page"]',
-                '[data-testid="lyrics-page"] > div',
-                '[data-testid="fullscreen-lyric"]',
-                '[data-testid="lyrics-cinema"]',
-                '.Root__lyrics-cinema',
-                '.main-lyricsCinema-container',
-                '.main-lyricsCinema-container > div',
-                '.lyrics-lyrics-background',
-                '.lyrics-lyrics-container',
-                '.lyrics-lyrics-contentContainer',
-                'section[data-testid="playlist-page"]',
-                'section[data-testid="playlist-page"] > div',
-                '[data-testid="playlist-tracklist"]',
-                '[data-testid="playlist-tracklist"] > div',
-                '[data-testid="action-bar-row"]',
-                '[data-testid="action-bar"]',
-                '.main-actionBar-ActionBar',
-                '.main-actionBarBackground-background',
-                '.main-entityHeader-backgroundColor',
-                '.main-entityHeader-background',
-                '.main-entityHeader-overlay',
-                '[data-testid="overscroll-background"]',
-                '[data-seamless-gradient]',
-                '#Desktop_LeftSidebar_Id',
-                '#Desktop_LeftSidebar_Id nav',
-                '#Desktop_LeftSidebar_Id nav > div',
-                '.YourLibraryX',
-                '[class*="YourLibrary"]',
-                '.Root__right-sidebar aside'
-            ];
-
-            const elements = document.querySelectorAll(targetSelectors.join(', '));
-            elements.forEach(el => clearElementBg(el));
-
-            // Quét các thẻ div mang inline background-color, linear-gradient hoặc --lyrics-color được gán động
-            const styledDivs = document.querySelectorAll(`
-                .main-view-container__scroll-node-child div[style*="background"],
-                section[data-testid] div[style*="background"],
-                header div[style*="background"],
-                [data-testid="topbar"] div[style*="background"],
-                [data-testid="lyrics-page"] div[style*="background"],
-                .main-lyricsCinema-container div[style*="background"],
-                .Root__right-sidebar div[style*="background"],
-                aside div[style*="background"],
-                [data-encore-id="card"] div[style*="background"],
-                [data-testid="browse-card"] div[style*="background"],
-                div[style*="--lyrics-color"]
-            `);
-
-            styledDivs.forEach(el => {
-                // 1. Bảo vệ các phần tử media, chú mèo, thông báo
-                if (
-                    el.tagName === 'IMG' ||
-                    el.id === 'we-sync-overlay' ||
-                    el.id === 'we-sync-video' ||
-                    el.id === 'we-sync-img' ||
-                    el.id === 'we-sync-toast' ||
-                    el.id === 'we-sync-debug' ||
-                    el.id === 'catjam-webm' ||
-                    el.closest('#catjam-webm')
-                ) {
-                    return;
-                }
-
-                // 2. Bảo vệ ảnh bìa (backgroundImage dạng url(...) như "About the artist" / Header banner)
-                const bgImg = el.style.backgroundImage || '';
-                if (bgImg.includes('url(')) {
-                    return;
-                }
-
-                // 3. Bảo vệ thanh tiến trình nhạc và thanh âm lượng
-                if (
-                    el.closest('.playback-bar') ||
-                    el.closest('.volume-bar') ||
-                    el.closest('[data-testid*="progress"]') ||
-                    el.closest('[role="progressbar"]') ||
-                    el.classList.contains('x-progressBar-progressBarBg') ||
-                    el.classList.contains('x-progressBar-fillColor')
-                ) {
-                    return;
-                }
-
-                // 4. Bảo vệ nút bấm Encore chính (Play/Pause xanh lá/trắng, Close button)
-                if (
-                    el.closest('[data-testid="play-button"]') ||
-                    el.closest('[data-testid="control-button-playpause"]') ||
-                    el.classList.contains('main-playButton-PlayButton') ||
-                    el.closest('.main-playButton-PlayButton') ||
-                    el.closest('.encore-bright-accent-set') ||
-                    el.closest('.encore-inverted-light-set') ||
-                    el.getAttribute('data-encore-id') === 'buttonPrimary' ||
-                    el.closest('button[data-encore-id="buttonPrimary"]') ||
-                    el.closest('button[aria-label="Close"]') ||
-                    el.closest('.main-playlistEditDetailsModal-closeBtn')
-                ) {
-                    return;
-                }
-
-                // 5. Bảo vệ Context Menu, Popup, Dialog, Tooltip, Modals & Portals
-                if (
-                    el.closest('[role="dialog"]') ||
-                    el.closest('[role="menu"]') ||
-                    el.closest('[role="tooltip"]') ||
-                    el.closest('.main-contextMenu-tippy') ||
-                    el.closest('[data-tippy-root]') ||
-                    el.closest('.main-contextMenu-menu') ||
-                    el.closest('.GenericModal__overlay') ||
-                    el.closest('.GenericModal') ||
-                    el.closest('.ReactModalPortal')
-                ) {
-                    return;
-                }
-
-                // 6. Bảo vệ cover-art hoặc card image
-                const dt = el.getAttribute('data-testid');
-                if (dt === 'background-image' || dt === 'cover-art-image' || dt === 'card-image') {
-                    return;
-                }
-
-                clearElementBg(el);
-            });
-
-            // 7. Đảm bảo Cover Art trong Now Playing View không bị Canvas rỗng làm ẩn
-            const npvCover = document.querySelector('.main-nowPlayingView-coverArtContainer > div:first-child');
-            if (npvCover) {
-                const canvasVideo = document.querySelector('.canvasVideoContainerNPV video');
-                if (!canvasVideo && npvCover.style.visibility !== 'visible') {
-                    npvCover.style.setProperty('visibility', 'visible', 'important');
-                    npvCover.style.setProperty('opacity', '1', 'important');
-                }
-            }
-        } catch (e) {
-            console.warn('[WESync] enforceFullTransparency error:', e);
-        }
-    }
-
-    // =========================================================================
-    // 4. HỖ TRỢ BỐ CỤC SPOTIFY & THANH ĐIỀU KHIỂN (CAT-JAM, COVER ART, TIẾN TRÌNH)
-    // =========================================================================
-    function initSpotifyLayoutBridge() {
-        function patchBar() {
-            // Đảm bảo không bị các container trung gian của Spotify v1.3.4+ phủ nền đen
-            const root = document.querySelector('.Root');
-            if (root) {
-                const darkWrappers = root.querySelectorAll('.bokji1jrN2MBe7RA0384, .L5dM7nzQpMJtRkvZZBZL, [class*="bokji"]');
-                darkWrappers.forEach(el => {
-                    if (el.style.backgroundColor !== 'transparent') {
-                        el.style.setProperty('background', 'transparent', 'important');
-                        el.style.setProperty('background-color', 'transparent', 'important');
-                    }
-                });
-            }
-
-            const bar = document.querySelector('[data-testid="now-playing-bar"]');
-            if (!bar) return;
-
-            bar.classList.add('main-nowPlayingBar-container');
-
-            const row = bar.firstElementChild;
-            if (!row || row.children.length < 3) return;
-
-            row.classList.add('main-nowPlayingBar-nowPlayingBar');
-
-            const left = row.children[0];
-            const center = row.children[1];
-            const right = row.children[2];
-            const extraControls = right ? Array.from(right.children).find(el => el.tagName === 'DIV') : null;
-
-            if (left && !left.classList.contains('main-nowPlayingBar-left')) {
-                left.classList.add('main-nowPlayingBar-left');
-            }
-            if (center && !center.classList.contains('main-nowPlayingBar-center')) {
-                center.classList.add('main-nowPlayingBar-center');
-            }
-            if (right && !right.classList.contains('main-nowPlayingBar-right')) {
-                right.classList.add('main-nowPlayingBar-right');
-            }
-            if (extraControls && !extraControls.classList.contains('main-nowPlayingBar-extraControls')) {
-                extraControls.classList.add('main-nowPlayingBar-extraControls');
-            }
-
-            // Dọn dẹp video cat trùng lặp nếu có
-            const allCats = document.querySelectorAll('#catjam-webm');
-            if (allCats.length > 1) {
-                for (let i = 1; i < allCats.length; i++) allCats[i].remove();
-            }
-            if (allCats.length > 0) {
-                allCats[0].classList.remove('main-nowPlayingBar-extraControls');
-            }
-
-            // Đảm bảo chú mèo nhảy nhảy (Cat Jam) luôn được gắn vào thanh điều khiển nhạc
-            if (right && !document.getElementById('catjam-webm')) {
-                try {
-                    const cat = document.createElement('video');
-                    cat.id = 'catjam-webm';
-                    cat.setAttribute('loop', 'true');
-                    cat.setAttribute('autoplay', 'true');
-                    cat.setAttribute('muted', 'true');
-                    cat.setAttribute('style', 'width: 36px; height: 36px;');
-                    let catSrc = 'http://127.0.0.1:8989/catjam.webm';
-                    try {
-                        const storedLink = JSON.parse(localStorage.getItem('catjam-settings.catjam-webm-link') || '{}')?.value;
-                        if (storedLink) catSrc = storedLink;
-                    } catch(e) {}
-                    cat.src = catSrc;
-                    cat.onerror = () => {
-                        // Fallback sang CDN jsdelivr nếu server local chưa kịp khởi động
-                        if (cat.src !== 'https://cdn.jsdelivr.net/gh/BlafKing/spicetify-cat-jam-synced@main/src/resources/catjam.webm') {
-                            cat.src = 'https://cdn.jsdelivr.net/gh/BlafKing/spicetify-cat-jam-synced@main/src/resources/catjam.webm';
-                        }
-                    };
-                    if (right.firstChild && right.firstChild !== cat) {
-                        right.insertBefore(cat, right.firstChild);
-                    } else if (!right.contains(cat)) {
-                        right.appendChild(cat);
-                    }
-                    let isPlaying = false;
-                    try { isPlaying = Boolean(window.Spicetify?.Player?.isPlaying && window.Spicetify.Player.isPlaying()); } catch(e) {}
-                    if (isPlaying) {
-                        cat.play().catch(() => {});
-                    }
-                } catch(catErr) {
-                    console.warn('[we-sync] Cat-jam insert error:', catErr);
-                }
-            }
-        }
-
-        // Đảm bảo toàn bộ thanh cuộn ảo (OverlayScrollbars) và WebKit scrollbar bị ẩn triệt để 100%
-        function ensureZeroScrollbarStyle() {
-            if (!document.getElementById('we-sync-zero-scrollbar')) {
-                const st = document.createElement('style');
-                st.id = 'we-sync-zero-scrollbar';
-                st.textContent = `
-                    ::-webkit-scrollbar, *::-webkit-scrollbar {
-                        display: none !important;
-                        width: 0 !important;
-                        height: 0 !important;
-                        background: transparent !important;
-                    }
-                    ::-webkit-scrollbar-thumb, *::-webkit-scrollbar-thumb,
-                    ::-webkit-scrollbar-track, *::-webkit-scrollbar-track,
-                    ::-webkit-scrollbar-corner, *::-webkit-scrollbar-corner {
-                        display: none !important;
-                        background: transparent !important;
-                    }
-                    html, body, #main, .Root, .Root__top-container, .Root__main-view,
-                    .main-view-container, .main-view-container__scroll-node,
-                    .main-view-container__scroll-node-child, .os-host, .os-padding,
-                    .os-viewport, .os-content, [data-overlayscrollbars-viewport],
-                    nav, aside, section, div, * {
-                        scrollbar-width: none !important;
-                        -ms-overflow-style: none !important;
-                    }
-                    .os-scrollbar, .os-scrollbar-track, .os-scrollbar-handle,
-                    .os-scrollbar-corner, .os-scrollbar-cornerless,
-                    .os-scrollbar-horizontal, .os-scrollbar-vertical,
-                    .os-theme-spotify, [class*="os-scrollbar"],
-                    [data-overlayscrollbars] > .os-scrollbar,
-                    [data-overlayscrollbars-viewport]::-webkit-scrollbar {
-                        display: none !important;
-                        opacity: 0 !important;
-                        visibility: hidden !important;
-                        pointer-events: none !important;
-                        width: 0 !important;
-                        height: 0 !important;
-                    }
-                    html, body, #main, .Root, .Root__top-container, .Root__main-view,
-                    .main-view-container, .main-view-container__scroll-node,
-                    .main-view-container__scroll-node-child {
-                        overflow-x: hidden !important;
-                    }
-                `;
-                (document.head || document.documentElement).appendChild(st);
-            }
-        }
-
-        // Lắng nghe sự kiện scroll trên toàn bộ cây DOM (window capture) để xóa tức thì màu nền khi cuộn
-        let scrollDebounce = null;
-        function onAnyScroll() {
-            if (scrollDebounce) return;
-            scrollDebounce = setTimeout(() => {
-                scrollDebounce = null;
-                enforceFullTransparency();
-            }, 50);
-        }
-
-        function attachScrollListener() {
-            if (!window._weScrollAttached) {
-                window._weScrollAttached = true;
-                window.addEventListener('scroll', onAnyScroll, { capture: true, passive: true });
-            }
-            const scrollNode = document.querySelector('.main-view-container__scroll-node') || document.querySelector('.os-viewport');
-            if (scrollNode && !scrollNode.dataset.weScrollAttached) {
-                scrollNode.dataset.weScrollAttached = "1";
-                scrollNode.addEventListener('scroll', onAnyScroll, { passive: true });
-            }
-        }
-
-        try {
-            ensureZeroScrollbarStyle();
-            patchBar();
-            enforceFullTransparency();
-            attachScrollListener();
-        } catch(e) {}
-
-        // MutationObserver hợp nhất duy nhất, debounce 180ms, không bắt attributes để đạt 0% CPU
-        let bridgeDebounce = null;
-        const obs = new MutationObserver(() => {
-            if (bridgeDebounce) return;
-            bridgeDebounce = setTimeout(() => {
-                bridgeDebounce = null;
-                try {
-                    ensureZeroScrollbarStyle();
-                    patchBar();
-                    enforceFullTransparency();
-                    attachScrollListener();
-                } catch(e) {}
-            }, 180);
-        });
-        obs.observe(document.body, { childList: true, subtree: true });
-
-        // Đồng bộ play/pause chú mèo khi người dùng bật/dừng nhạc
-        if (window.Spicetify?.Player) {
-            window.Spicetify.Player.addEventListener('onplaypause', () => {
-                const cat = document.getElementById('catjam-webm');
-                if (!cat) return;
-                let isPlaying = false;
-                try { isPlaying = Boolean(window.Spicetify?.Player?.isPlaying && window.Spicetify.Player.isPlaying()); } catch(e) {}
-                if (isPlaying) {
-                    cat.play().catch(() => {});
-                } else {
-                    cat.pause();
-                }
-            });
-        }
-    }
-
-    // Khởi tạo chế độ trong suốt đã lưu
-    applyTransparencyMode(currentModeKey, false);
-
-    initSpotifyLayoutBridge();
-    checkBg();
+      } catch (e) {}
+    };
+
+    ws.onclose = () => {
+      setTimeout(connectWebSocket, WE_CONFIG.RECONNECT_DELAY);
+    };
+
+    ws.onerror = () => {
+      ws.close();
+    };
+  }
+
+  /* ==========================================================================
+     7. BOOTSTRAPPER & INITIALIZATION
+     ========================================================================== */
+  function bootstrap() {
+    ensureMediaContainers();
+    new WESettingsGUI(settingsManager);
+    new AudioWaveVisualizer(settingsManager);
+    new DynamicColorExtractor(settingsManager);
+    initDOMObserver();
+    connectWebSocket();
+    enforceFullTransparency();
+    console.log("[WE-Sync] Studio Suite v3.0.0 initialized successfully.");
+  }
+
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", bootstrap);
+  } else {
+    bootstrap();
+  }
 })();
