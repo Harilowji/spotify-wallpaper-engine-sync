@@ -1,7 +1,7 @@
 /**
  * Spotify x Wallpaper Engine Sync - Ultra-Transparent Spatial Glassmorphism Theme
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Version: 3.0.0 (Riff Fusion & Studio Suite - Settings GUI, Visualizer & Dynamic Accent)
+ * Version: 3.0.1 (Precision Popper Positioning, Modal Close Fix & Zero-Scrollbar Restoration)
  */
 
 /* ==========================================================================
@@ -577,9 +577,9 @@ video[id="cat"] {
 }
 
 /* ==========================================================================
-   7. HỘP THOẠI NHỎ, MENU, POPOVER & Z-INDEX WALLPAPER ENGINE
+   7. HỘP THOẠI NHỎ, MENU, POPOVER & Z-INDEX (PRECISION POPPER & MODAL)
    ========================================================================== */
-/* FIX: Khắc phục triệt để lỗi tooltip bị kẹt tọa độ và chặn click chuột */
+/* Portals và Modals - Nâng lên trên #main mà không làm sai lệch luồng Flexbox */
 .ReactModalPortal:empty {
   display: none !important;
 }
@@ -601,14 +601,17 @@ div[data-portal-id] > *,
   pointer-events: auto !important;
 }
 
+/* Tippy Container - Bảo lưu định vị Absolute/Transform gốc của Popper, không kẹp lề flex */
 div[data-tippy-root] {
   z-index: 99999 !important;
+  pointer-events: none !important;
 }
 
+/* Tooltip hiển thị chú thích nút bấm - Kính mờ sang trọng, tự thu gọn, không bao giờ chặn click */
 .main-contextMenu-tippy,
 [role="tooltip"] {
   pointer-events: none !important;
-  background: rgba(16, 16, 22, 0.88) !important;
+  background: rgba(16, 16, 22, 0.92) !important;
   backdrop-filter: blur(14px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
@@ -616,12 +619,16 @@ div[data-tippy-root] {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5) !important;
   color: #FFFFFF !important;
   font-size: 13px !important;
+  font-weight: 500 !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8) !important;
   padding: 6px 12px !important;
   max-width: 320px !important;
   white-space: normal !important;
   word-break: break-word !important;
+  line-height: 1.4 !important;
 }
 
+/* Lớp phủ mờ (Backdrop Overlay) phía sau modal */
 .GenericModal__overlay {
   position: fixed !important;
   top: 0 !important;
@@ -635,23 +642,62 @@ div[data-tippy-root] {
   pointer-events: auto !important;
 }
 
+/* Khối nội dung hộp thoại (Dialog / Modal) dạng kính mờ tinh thể pha lê */
 .GenericModal,
-div[role="dialog"],
-div[role="menu"],
-ul[role="menu"],
-.main-contextMenu-menu,
-.main-userWidget-dropDownMenu,
-[data-encore-id="popover"],
-.connect-device-list-container {
+div[role="dialog"] {
   position: relative !important;
   z-index: 100000 !important;
   background: rgba(12, 12, 16, 0.32) !important;
   backdrop-filter: blur(14px) saturate(160%) !important;
   -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
   border: 1px solid rgba(255, 255, 255, 0.14) !important;
-  border-radius: 14px !important;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.45) !important;
   pointer-events: auto !important;
+}
+
+/* Đảm bảo nút đóng (X) và mọi nút bấm trong modal luôn nhận tương tác click */
+button[aria-label="Close"],
+.main-playlistEditDetailsModal-closeBtn,
+[data-testid="playlist-edit-details-modal"] button,
+div[role="dialog"] button {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+  z-index: 100001 !important;
+}
+
+/* Phục hồi màu icon nút đóng (X) trong modal sáng rõ */
+.main-playlistEditDetailsModal-closeBtn svg,
+button[aria-label="Close"] svg,
+.pSxFsY9Fgcj5f8Gf05mh svg {
+  fill: #FFFFFF !important;
+  color: #FFFFFF !important;
+}
+
+/* Context Menu, Dropdown, Popover & Spotify Connect Device List */
+/* LƯU Ý: Tuyệt đối KHÔNG gán position: relative ở đây để bảo tồn tọa độ tính toán tự động của Popper/Tippy */
+div[role="menu"],
+ul[role="menu"],
+.main-contextMenu-menu,
+.main-userWidget-dropDownMenu,
+[data-encore-id="popover"],
+.connect-device-list-container,
+.main-connect-device-picker {
+  z-index: 100000 !important;
+  background: rgba(12, 12, 16, 0.75) !important;
+  backdrop-filter: blur(18px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
+  pointer-events: auto !important;
+}
+
+div[role="menuitem"]:hover,
+button[role="menuitem"]:hover,
+li[role="presentation"] > button:hover,
+.main-contextMenu-menuItemButton:hover {
+  background-color: rgba(255, 255, 255, 0.12) !important;
 }
 
 div[role="dialog"] div:not([class*="progressBar"]),
@@ -662,6 +708,168 @@ div[role="dialog"] div:not([class*="progressBar"]),
   box-shadow: none !important;
 }
 
+/* ==========================================================================
+   8. THANH BÊN PHẢI (NOW PLAYING VIEW) & LƯỚI SHORTCUT ĐẦU TRANG CHỦ
+   ========================================================================== */
+.Root__right-sidebar,
+aside.NowPlayingView,
+[data-testid="RightSidebar"],
+.main-nowPlayingView-section,
+.main-nowPlayingView-content,
+.main-nowPlayingView-lyricsCard,
+.main-nowPlayingView-aboutArtistCard,
+.main-nowPlayingView-credits,
+.main-nowPlayingView-queue {
+  background: transparent !important;
+  background-color: transparent !important;
+  box-shadow: none !important;
+}
+
+.main-nowPlayingView-aboutArtistCard,
+.main-nowPlayingView-lyricsCard {
+  background: rgba(16, 16, 22, 0.28) !important;
+  backdrop-filter: blur(14px) saturate(160%) !important;
+  -webkit-backdrop-filter: blur(14px) saturate(160%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.10) !important;
+  border-radius: 12px !important;
+}
+
+.main-nowPlayingView-lyricsCard [style*="background-color"] {
+  background-color: transparent !important;
+}
+
+/* Các hộp Shortcut đầu trang Home (Quick-Play) */
+[data-testid="grid-container"] > div,
+[data-testid="fast-lane"] > div,
+.main-card-card,
+[data-encore-id="card"] {
+  background-color: rgba(255, 255, 255, 0.04) !important;
+  border-radius: 8px !important;
+  transition: background-color 0.2s ease !important;
+}
+
+[data-testid="grid-container"] > div:hover,
+[data-testid="fast-lane"] > div:hover,
+.main-card-card:hover,
+[data-encore-id="card"]:hover {
+  background-color: rgba(255, 255, 255, 0.10) !important;
+}
+
+/* ==========================================================================
+   9. THÔNG BÁO TOAST THÔNG MINH WE-SYNC & TRIỆT TIÊU 100% THANH CUỘN (ZERO-SCROLLBAR)
+   ========================================================================== */
+#we-sync-debug {
+  pointer-events: none !important;
+}
+#we-sync-toast {
+  position: fixed !important;
+  bottom: 100px !important;
+  right: 24px !important;
+  z-index: 999999 !important;
+  background: rgba(18, 18, 22, 0.84) !important;
+  backdrop-filter: blur(20px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+  border-radius: 12px !important;
+  padding: 12px 18px !important;
+  color: #ffffff !important;
+  font-size: 13px !important;
+  font-weight: 600 !important;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5) !important;
+  display: flex !important;
+  align-items: center !important;
+  gap: 10px !important;
+  pointer-events: none !important;
+  opacity: 0 !important;
+  transform: translateY(15px) scale(0.95) !important;
+  transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+#we-sync-toast.we-toast-show {
+  opacity: 1 !important;
+  transform: translateY(0) scale(1) !important;
+}
+
+/* 1. Triệt tiêu hoàn toàn thanh cuộn WebKit trên toàn bộ ứng dụng (Vertical & Horizontal) */
+::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-track,
+*::-webkit-scrollbar-track,
+::-webkit-scrollbar-thumb,
+*::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-corner,
+*::-webkit-scrollbar-corner {
+  display: none !important;
+  background: transparent !important;
+  border: none !important;
+}
+
+/* 2. Tiêu chuẩn scrollbar-width & -ms-overflow-style (W3C standard cho Chromium/CEF) */
+html,
+body,
+#main,
+.Root,
+.Root__top-container,
+.Root__main-view,
+.main-view-container,
+.main-view-container__scroll-node,
+.main-view-container__scroll-node-child,
+.os-host,
+.os-padding,
+.os-viewport,
+.os-content,
+[data-overlayscrollbars-viewport],
+nav,
+aside,
+section,
+div,
+* {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+/* 3. Ẩn triệt để thanh cuộn ảo OverlayScrollbars của Spotify */
+.os-scrollbar,
+.os-scrollbar-track,
+.os-scrollbar-handle,
+.os-scrollbar-corner,
+.os-scrollbar-cornerless,
+.os-scrollbar-horizontal,
+.os-scrollbar-vertical,
+.os-theme-spotify,
+[class*="os-scrollbar"],
+[data-overlayscrollbars] > .os-scrollbar,
+[data-overlayscrollbars-viewport]::-webkit-scrollbar {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* 4. Ngăn chặn tuyệt đối hiện tượng rò rỉ thanh cuộn ngang (Horizontal Overflow Leak) */
+html,
+body,
+#main,
+.Root,
+.Root__top-container,
+.Root__main-view,
+.main-view-container,
+.main-view-container__scroll-node,
+.main-view-container__scroll-node-child {
+  overflow-x: hidden !important;
+}
+
+/* ==========================================================================
+   10. ĐẢM BẢO Z-INDEX LỚP NỀN WALLPAPER ENGINE
+   ========================================================================== */
 #main {
   position: relative !important;
   z-index: 1 !important;

@@ -1,5 +1,5 @@
 /**
- * Spotify x Wallpaper Engine Sync - Studio Suite v3.0.0
+ * Spotify x Wallpaper Engine Sync - Studio Suite v3.0.1
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
  * Features:
  *  - 100% Ultra-Transparent & Spatial Glassmorphism UI
@@ -939,7 +939,7 @@
       `;
       const candidates = document.querySelectorAll(query);
       candidates.forEach((el) => {
-        // Protect buttons & progress bars
+        // Protect buttons, progress bars, settings modal, dialogs, menus & tooltips
         if (el.closest('[data-testid="play-button"]') ||
             el.closest('[data-testid="control-button-playpause"]') ||
             el.closest('.encore-bright-accent-set') ||
@@ -947,7 +947,15 @@
             el.closest('[data-testid*="progress"]') ||
             el.closest('.playback-bar') ||
             el.closest('#we-settings-modal') ||
+            el.closest('#we-settings-modal-overlay') ||
             el.closest('#we-sync-toast') ||
+            el.closest('[role="dialog"]') ||
+            el.closest('[role="menu"]') ||
+            el.closest('[role="tooltip"]') ||
+            el.closest('.main-contextMenu-tippy') ||
+            el.closest('[data-tippy-root]') ||
+            el.closest('.main-contextMenu-menu') ||
+            el.closest('.GenericModal__overlay') ||
             el.style.backgroundImage.includes("url(")) {
           return;
         }
