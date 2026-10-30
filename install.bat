@@ -1,11 +1,11 @@
 @echo off
 setlocal enabledelayedexpansion
 chcp 65001 >nul
-title Spotify x Wallpaper Engine Sync - Studio Suite v3.1.0
+title Spotify x Wallpaper Engine Sync - Studio Suite v3.1.1
 cls
 
 echo ======================================================================
-echo    Spotify x Wallpaper Engine Sync - Trình Cài Đặt Tự Động v3.1.0
+echo    Spotify x Wallpaper Engine Sync - Trình Cài Đặt Tự Động v3.1.1
 echo    Phát triển & Tối ưu bởi: Harilowji (https://github.com/Harilowji)
 echo    Tự động cấu hình 100%% - Trong suốt tuyệt đối - Chống lỗi vặt
 echo ======================================================================
@@ -51,7 +51,7 @@ powershell -Command "Get-CimInstance Win32_Process | Where-Object { ($_.Name -eq
 echo [*] [4/7] Đang sao chép Extensions và thiết lập khiên bảo vệ...
 if not exist "%APPDATA%\spicetify\Extensions" mkdir "%APPDATA%\spicetify\Extensions"
 copy /y "%~dp0we-sync.js" "%APPDATA%\spicetify\Extensions\we-sync.js" >nul
-if exist "%~dp0cat-jam.js" copy /y "%~dp0cat-jam.js" "%APPDATA%\spicetify\Extensions\cat-jam.js" >nul
+if exist "%APPDATA%\spicetify\Extensions\cat-jam.js" del /f /q "%APPDATA%\spicetify\Extensions\cat-jam.js" >nul
 if exist "%~dp0adblock.js" copy /y "%~dp0adblock.js" "%APPDATA%\spicetify\Extensions\adblock.js" >nul
 
 :: Chặn triệt để Spotify Auto-Update tự ý ghi đè làm mất giao diện Spicetify
@@ -66,7 +66,7 @@ if not exist "%APPDATA%\spicetify\Themes\TransparentTheme" mkdir "%APPDATA%\spic
 copy /y "%~dp0user.css" "%APPDATA%\spicetify\Themes\TransparentTheme\user.css" >nul
 copy /y "%~dp0color.ini" "%APPDATA%\spicetify\Themes\TransparentTheme\color.ini" >nul
 
-call spicetify config extensions we-sync.js cat-jam.js adblock.js >nul 2>&1
+call spicetify config extensions we-sync.js adblock.js >nul 2>&1
 call spicetify config current_theme TransparentTheme >nul 2>&1
 call spicetify config inject_css 1 replace_colors 1 overwrite_assets 1 >nul 2>&1
 
@@ -111,7 +111,7 @@ if exist "%SPOTIFY_EXE%" (
 
 echo.
 echo ======================================================================
-echo    [THÀNH CÔNG] Đã hoàn tất nâng cấp lên v3.1.0!
+echo    [THÀNH CÔNG] Đã hoàn tất nâng cấp lên v3.1.1!
 echo    - Nhấn Alt + S trong Spotify để mở bảng Cài Đặt Kính Mờ & Visualizer.
 echo    - Máy chủ WESync đã được cấu hình chạy ngầm và tự khởi động cùng Windows.
 echo ======================================================================

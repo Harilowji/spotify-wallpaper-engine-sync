@@ -1,15 +1,15 @@
 # ======================================================================
-#   🎵 SPOTIFY x WALLPAPER ENGINE SYNC - 1-LINE INSTALLER SCRIPT v2.5.2
+#   🎵 SPOTIFY x WALLPAPER ENGINE SYNC - 1-LINE INSTALLER SCRIPT v3.1.1
 #   👤 Phát triển bởi: Harilowji (https://github.com/Harilowji)
 #   🔗 GitHub: https://github.com/Harilowji/spotify-wallpaper-engine-sync
 # ======================================================================
 
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
-$Host.UI.RawUI.WindowTitle = "Spotify x Wallpaper Engine Sync - Auto Installer v2.5.2"
+$Host.UI.RawUI.WindowTitle = "Spotify x Wallpaper Engine Sync - Auto Installer v3.1.1"
 
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host "  🎵 SPOTIFY x WALLPAPER ENGINE SYNC - BỘ CÀI ĐẶT TỰ ĐỘNG 1-CLICK" -ForegroundColor Green
-Write-Host "  👤 Phiên bản: v2.5.2 | Tác giả: Harilowji" -ForegroundColor Yellow
+Write-Host "  👤 Phiên bản: v3.1.1 | Tác giả: Harilowji" -ForegroundColor Yellow
 Write-Host "  ✨ 100% Trong suốt - Đồng bộ hình nền - Chống cập nhật ngầm" -ForegroundColor White
 Write-Host "======================================================================" -ForegroundColor Cyan
 Write-Host ""

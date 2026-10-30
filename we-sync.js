@@ -1,12 +1,15 @@
 /**
- * Spotify x Wallpaper Engine Sync - Studio Suite v3.1.0 (Comprehensive Production Release)
+ * Spotify x Wallpaper Engine Sync - Studio Suite v3.1.1 (Production Release)
  * Developed & Re-engineered by Harilowji (https://github.com/Harilowji)
- * Fixes:
- *  - Safe Spicetify Player Loader with Retries (Prevents unhandled runtime errors)
- *  - Safe TopBar Button Insertion via Spicetify.Topbar.Button (Prevents React DOM crash)
- *  - Standard Integer Z-Index (-2) for Canvas Visualizer
- *  - Guarded DOM Ready Lifecycle in Bootstrap
- *  - Full 100% Transparency preservation with Non-Destructive Observer
+ * 
+ * Features & Optimizations:
+ *  - Idempotent .we-sync-active Class Injection (Zero-CPU transparency without DOM repaint thrashing)
+ *  - Multi-Format Wallpaper Engine Support (Seamless Video HTTP 206, Scene .pkg & Web .html fallback)
+ *  - Automatic Video Codec Fallback (Gracefully renders preview thumbnail if CEF codec decoding fails)
+ *  - Consolidated Cat-Jam Widget (Beat & tempo synchronized dancing cat with conflict protection)
+ *  - Centralized State Manager with Dual Storage Persistence (Spicetify.LocalStorage & localStorage)
+ *  - Multi-Layer Harmonic Audio Wave Visualizer (Canvas 2D 60FPS with W3C integer z-index -2)
+ *  - Spatial Glassmorphism Modal GUI (Toggle with Alt + S or Topbar Button)
  */
 
 (function () {
@@ -14,7 +17,7 @@
 
   const WE_CONFIG = {
     WS_PORT: 8989,
-    RECONNECT_DELAY: 3000,
+    RECONNECT_DELAY: 2500,
     STORAGE_KEY: "we-sync-settings-v3",
     DEFAULT_SETTINGS: {
       overlayOpacity: 0.15,
@@ -29,37 +32,65 @@
       colorExtraction: true,
       accentPrimary: "#1ed760",
       accentGlow: "rgba(30, 215, 96, 0.45)"
-    }
+    },
+    CURRENT_SETTINGS: null
   };
 
   /* ==========================================================================
-     1. SETTINGS MANAGER (PERSISTENT LOCALSTORAGE & CSS ENGINE)
+     1. SETTINGS MANAGER (CENTRALIZED DUAL-STORAGE STATE & PERSISTENCE)
      ========================================================================== */
   class WESettingsManager {
     constructor() {
       this.config = this.load();
+      WE_CONFIG.CURRENT_SETTINGS = this.config;
       this.listeners = [];
       this.applyCSSVariables();
     }
 
+    getStorage(key) {
+      try {
+        if (typeof Spicetify !== "undefined" && Spicetify.LocalStorage && typeof Spicetify.LocalStorage.get === "function") {
+          const val = Spicetify.LocalStorage.get(key);
+          if (val) return val;
+        }
+      } catch (e) {}
+      try {
+        return localStorage.getItem(key);
+      } catch (e) {}
+      return null;
+    }
+
+    setStorage(key, val) {
+      try {
+        if (typeof Spicetify !== "undefined" && Spicetify.LocalStorage && typeof Spicetify.LocalStorage.set === "function") {
+          Spicetify.LocalStorage.set(key, val);
+        }
+      } catch (e) {}
+      try {
+        localStorage.setItem(key, val);
+      } catch (e) {}
+    }
+
     load() {
       try {
-        const raw = localStorage.getItem(WE_CONFIG.STORAGE_KEY);
+        const raw = this.getStorage(WE_CONFIG.STORAGE_KEY);
         if (raw) {
-          return { ...WE_CONFIG.DEFAULT_SETTINGS, ...JSON.parse(raw) };
+          const parsed = JSON.parse(raw);
+          return { ...WE_CONFIG.DEFAULT_SETTINGS, ...parsed };
         }
       } catch (e) {
-        console.warn("[WE-Sync] Could not read settings from localStorage:", e);
+        console.warn("[WE-Sync] Error reading settings from storage:", e);
       }
       return { ...WE_CONFIG.DEFAULT_SETTINGS };
     }
 
     save(newPartialConfig) {
       this.config = { ...this.config, ...newPartialConfig };
+      WE_CONFIG.CURRENT_SETTINGS = this.config;
       try {
-        localStorage.setItem(WE_CONFIG.STORAGE_KEY, JSON.stringify(this.config));
+        this.setStorage(WE_CONFIG.STORAGE_KEY, JSON.stringify(this.config));
       } catch (e) {
-        console.error("[WE-Sync] Could not save settings to localStorage:", e);
+        console.error("[WE-Sync] Error saving settings to storage:", e);
       }
       this.applyCSSVariables();
       this.notifyListeners();
@@ -67,8 +98,9 @@
 
     reset() {
       this.config = { ...WE_CONFIG.DEFAULT_SETTINGS };
+      WE_CONFIG.CURRENT_SETTINGS = this.config;
       try {
-        localStorage.removeItem(WE_CONFIG.STORAGE_KEY);
+        this.setStorage(WE_CONFIG.STORAGE_KEY, JSON.stringify(this.config));
       } catch (e) {}
       this.applyCSSVariables();
       this.notifyListeners();
@@ -96,13 +128,6 @@
       if (overlay) {
         overlay.style.backgroundColor = `rgba(0, 0, 0, ${this.config.overlayOpacity})`;
       }
-
-      const cat = document.getElementById("catjam-webm") || document.getElementById("cat");
-      if (cat) {
-        cat.style.display = this.config.catJamEnabled ? "inline-block" : "none";
-        cat.style.width = `${this.config.catJamSize}px`;
-        cat.style.height = `${this.config.catJamSize}px`;
-      }
     }
   }
 
@@ -120,6 +145,7 @@
 
     init() {
       window._weSettingsGUI = this;
+      this.topbarInjected = false;
       this.createTopbarButton();
       this.createModalDOM();
       this.bindKeyboardShortcuts();
@@ -127,6 +153,11 @@
     }
 
     createTopbarButton() {
+      if (this.topbarInjected || document.getElementById("we-settings-btn") || document.querySelector('button[aria-label*="Spotify x Wallpaper Engine Studio"]')) {
+        this.topbarInjected = true;
+        return;
+      }
+
       const tryInject = () => {
         if (document.getElementById("we-settings-btn")) return;
 
@@ -137,6 +168,7 @@
               `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>`,
               () => this.toggleModal()
             );
+            this.topbarInjected = true;
             return;
           } catch (e) {}
         }
@@ -178,25 +210,26 @@
           <div class="we-modal-header">
             <div class="we-modal-title">
               <span>Spotify x Wallpaper Engine Studio</span>
-              <span class="we-badge">v3.1.0</span>
+              <span class="we-badge">v3.1.1</span>
             </div>
             <button class="we-modal-close" id="we-modal-close-btn">&times;</button>
           </div>
           <div class="we-modal-tabs">
             <button class="we-tab-btn active" data-tab="tab-glass">🎨 Trong Suốt & Kính</button>
             <button class="we-tab-btn" data-tab="tab-vis">🌊 Sóng Nhạc Visualizer</button>
-            <button class="we-tab-btn" data-tab="tab-widget">🐱 Cat-Jam & Scrubber</button>
-            <button class="we-tab-btn" data-tab="tab-presets"> Presets & Màu Sắc</button>
+            <button class="we-tab-btn" data-tab="tab-widget">🐱 Cat-Jam & Nhịp Điệu</button>
+            <button class="we-tab-btn" data-tab="tab-presets">✨ Presets & Màu Sắc</button>
           </div>
           <div class="we-modal-body">
-          <!-- WE-SYNC CONNECTION STATUS BAR -->
-          <div class="we-conn-bar" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; margin-bottom: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 13px;">
-            <div id="we-conn-status" style="display: flex; align-items: center; gap: 8px;">
-              <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff5555; box-shadow: 0 0 6px #ff5555;"></span>
-              <span style="color: #ff5555; font-weight: 600;">Chưa kết nối máy chủ (Cổng 8989)</span>
+            <!-- WE-SYNC CONNECTION STATUS BAR -->
+            <div class="we-conn-bar" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; margin-bottom: 14px; background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 8px; font-size: 13px;">
+              <div id="we-conn-status" style="display: flex; align-items: center; gap: 8px;">
+                <span style="display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #ff5555; box-shadow: 0 0 6px #ff5555;"></span>
+                <span style="color: #ff5555; font-weight: 600;">Chưa kết nối máy chủ (Cổng 8989)</span>
+              </div>
+              <button id="we-btn-reconnect" class="we-btn secondary" style="padding: 4px 12px; font-size: 12px; font-weight: 500; cursor: pointer; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.1); color: #fff; transition: all 0.2s ease;">Thử Kết Nối Lại</button>
             </div>
-            <button id="we-btn-reconnect" class="we-btn secondary" style="padding: 4px 12px; font-size: 12px; font-weight: 500; cursor: pointer; border-radius: 6px; border: 1px solid rgba(255, 255, 255, 0.2); background: rgba(255, 255, 255, 0.1); color: #fff; transition: all 0.2s ease;">Thử Kết Nối Lại</button>
-          </div>
+
             <!-- TAB 1: GLASS -->
             <div class="we-tab-panel active" id="tab-glass">
               <div class="we-control-group">
@@ -212,15 +245,6 @@
                   <span id="lbl-blur-val">${this.settings.config.glassBlur}px</span>
                 </div>
                 <input type="range" class="we-slider" id="rng-blur" min="0" max="30" value="${this.settings.config.glassBlur}">
-              </div>
-              <div class="we-control-group" style="margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: space-between;">
-                <div>
-                  <div style="font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; color: #888; margin-bottom: 4px;">Trạng Thái Đồng Bộ:</div>
-                  <div id="we-conn-status">
-                    <span style="color: #ff5555; font-weight: 600; display: inline-flex; align-items: center; gap: 6px;"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#ff5555;"></span> Đang kết nối...</span>
-                  </div>
-                </div>
-                <button class="we-btn-sm" id="we-btn-reconnect" style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #fff; padding: 6px 14px; border-radius: 8px; font-size: 12px; cursor: pointer; transition: all 0.2s ease;">Thử Kết Nối Lại</button>
               </div>
             </div>
 
@@ -242,20 +266,22 @@
               </div>
             </div>
 
-            <!-- TAB 3: WIDGET -->
-            <div class="we-switch-row">
-              <span>Bật Chú Mèo Nhảy Cat-Jam</span>
-              <label class="we-switch">
-                <input type="checkbox" id="chk-cat" ${this.settings.config.catJamEnabled ? "checked" : ""}>
-                <span class="we-switch-slider"></span>
-              </label>
-            </div>
-            <div class="we-control-group">
-              <div class="we-control-label">
-                <span>Kích Thước Chú Mèo</span>
-                <span id="lbl-cat-sz">${this.settings.config.catJamSize}px</span>
+            <!-- TAB 3: CAT-JAM WIDGET -->
+            <div class="we-tab-panel" id="tab-widget">
+              <div class="we-switch-row">
+                <span>Bật Chú Mèo Nhảy Cat-Jam</span>
+                <label class="we-switch">
+                  <input type="checkbox" id="chk-cat" ${this.settings.config.catJamEnabled ? "checked" : ""}>
+                  <span class="we-switch-slider"></span>
+                </label>
               </div>
-              <input type="range" class="we-slider" id="rng-cat-sz" min="24" max="60" value="${this.settings.config.catJamSize}">
+              <div class="we-control-group">
+                <div class="we-control-label">
+                  <span>Kích Thước Chú Mèo</span>
+                  <span id="lbl-cat-sz">${this.settings.config.catJamSize}px</span>
+                </div>
+                <input type="range" class="we-slider" id="rng-cat-sz" min="24" max="60" value="${this.settings.config.catJamSize}">
+              </div>
             </div>
 
             <!-- TAB 4: PRESETS -->
@@ -269,10 +295,10 @@
               </div>
               <div style="font-size: 13px; font-weight: 600; color: #ffffff; margin-bottom: 8px;">Chọn Cấu Hình Nhanh:</div>
               <div class="we-preset-grid">
-                <button class="we-preset-btn" data-preset="pure"> Pure 100% Transparent<br><small style="color:#aaa;">Trong suốt tối đa</small></button>
+                <button class="we-preset-btn" data-preset="pure">✨ Pure 100% Transparent<br><small style="color:#aaa;">Trong suốt tối đa</small></button>
                 <button class="we-preset-btn" data-preset="contrast">🌟 Crystal Contrast<br><small style="color:#aaa;">Rõ chữ cho nền sáng</small></button>
-                <button class="we-preset-btn" data-preset="frosted"> Frosted Spatial<br><small style="color:#aaa;">Kính mờ phân lớp 3D</small></button>
-                <button class="we-preset-btn" data-preset="cyberpunk"> Cyberpunk Neon<br><small style="color:#aaa;">Viền phát sáng rực rỡ</small></button>
+                <button class="we-preset-btn" data-preset="frosted">❄️ Frosted Spatial<br><small style="color:#aaa;">Kính mờ phân lớp 3D</small></button>
+                <button class="we-preset-btn" data-preset="cyberpunk">⚡ Cyberpunk Neon<br><small style="color:#aaa;">Viền phát sáng rực rỡ</small></button>
               </div>
             </div>
           </div>
@@ -300,6 +326,7 @@
           connectWebSocket(true);
         });
       }
+
       overlay.addEventListener("click", (e) => {
         if (e.target === overlay) this.closeModal();
       });
@@ -448,26 +475,23 @@
     openModal() {
       const overlay = document.getElementById("we-settings-modal-overlay");
       if (overlay) {
+        this.isOpen = true;
         this.syncUIValues();
         overlay.classList.add("active");
-        this.isOpen = true;
-        if (typeof updateConnectionStatus === "function") {
-          updateConnectionStatus(activeWs && activeWs.readyState === WebSocket.OPEN);
-        }
       }
     }
 
     closeModal() {
       const overlay = document.getElementById("we-settings-modal-overlay");
       if (overlay) {
-        overlay.classList.remove("active");
         this.isOpen = false;
+        overlay.classList.remove("active");
       }
     }
   }
 
   /* ==========================================================================
-     3. RHYTHMIC AUDIO WAVE VISUALIZER (CANVAS 2D 60FPS WITH INTEGER Z-INDEX)
+     3. RHYTHMIC AUDIO WAVE VISUALIZER (CANVAS 2D 60FPS WITH INTEGER Z-INDEX -2)
      ========================================================================== */
   class AudioWaveVisualizer {
     constructor(settings) {
@@ -586,7 +610,126 @@
   }
 
   /* ==========================================================================
-     4. DYNAMIC COLOR EXTRACTOR (WITH SAFE SPICETIFY POLLING)
+     4. CONSOLIDATED CAT-JAM WIDGET (RHYTHMIC BPM-AWARE DANCING CAT)
+     ========================================================================== */
+  class CatJamWidget {
+    constructor(settings) {
+      this.settings = settings;
+      this.video = null;
+      this.currentTrackUri = "";
+      this.init();
+    }
+
+    init() {
+      // Check if external cat-jam extension is already loaded to prevent dual controllers
+      if (window._catJamStandaloneLoaded || document.querySelector(".catjam-settings")) {
+        console.log("[WE-Sync] Standalone cat-jam extension detected. Delegating Cat-Jam widget to external extension.");
+        return;
+      }
+
+      this.createVideoElement();
+
+      const bindPlayer = () => {
+        if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.addEventListener) {
+          Spicetify.Player.addEventListener("onplaypause", () => this.syncPlayback());
+          Spicetify.Player.addEventListener("songchange", () => this.syncTrackBpm());
+          this.syncPlayback();
+          this.syncTrackBpm();
+        } else {
+          setTimeout(bindPlayer, 600);
+        }
+      };
+      bindPlayer();
+
+      this.settings.subscribe((cfg) => {
+        this.updateAppearance(cfg);
+      });
+    }
+
+    createVideoElement() {
+      if (document.getElementById("catjam-webm")) {
+        this.video = document.getElementById("catjam-webm");
+        this.updateAppearance(this.settings.config);
+        return;
+      }
+
+      const target = document.querySelector(".main-nowPlayingBar-right") || 
+                     document.querySelector(".main-yourLibraryX-libraryItemContainer");
+      if (!target) {
+        setTimeout(() => this.createVideoElement(), 800);
+        return;
+      }
+
+      const v = document.createElement("video");
+      v.id = "catjam-webm";
+      v.loop = true;
+      v.autoplay = true;
+      v.muted = true;
+      v.defaultMuted = true;
+      v.playsInline = true;
+      v.src = `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/catjam.webm`;
+      v.style.cssText = `height:${this.settings.config.catJamSize}px;width:auto;aspect-ratio:790/604;object-fit:contain;pointer-events:none;transition:width 0.2s,height 0.2s;display:${this.settings.config.catJamEnabled ? "inline-block" : "none"};`;
+
+      if (target.firstChild) {
+        target.insertBefore(v, target.firstChild);
+      } else {
+        target.appendChild(v);
+      }
+      this.video = v;
+      this.syncPlayback();
+    }
+
+    updateAppearance(cfg) {
+      if (!this.video) {
+        if (cfg.catJamEnabled) this.createVideoElement();
+        return;
+      }
+      this.video.style.display = cfg.catJamEnabled ? "inline-block" : "none";
+      this.video.style.height = `${cfg.catJamSize}px`;
+      this.video.style.width = "auto";
+      this.video.style.aspectRatio = "790 / 604";
+      if (cfg.catJamEnabled) {
+        this.syncPlayback();
+      } else {
+        try { this.video.pause(); } catch (e) {}
+      }
+    }
+
+    syncPlayback() {
+      if (!this.video || !this.settings.config.catJamEnabled) return;
+      const isPlaying = typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.isPlaying();
+      if (isPlaying) {
+        this.video.play().catch(() => {});
+      } else {
+        this.video.pause();
+      }
+    }
+
+    syncTrackBpm() {
+      if (!this.video || !this.settings.config.catJamEnabled) return;
+      if (typeof Spicetify === "undefined" || !Spicetify.Player || !Spicetify.Player.data) return;
+
+      const track = Spicetify.Player.data.track;
+      if (!track || !track.uri) return;
+      if (track.uri === this.currentTrackUri) return;
+      this.currentTrackUri = track.uri;
+
+      let tempo = null;
+      if (track.metadata && track.metadata.tempo) {
+        tempo = parseFloat(track.metadata.tempo);
+      }
+      if (tempo && tempo > 40 && tempo < 300) {
+        const rate = Math.min(2.0, Math.max(0.5, tempo / 135.48));
+        this.video.playbackRate = rate;
+      } else {
+        this.video.playbackRate = 1.0;
+      }
+      this.syncPlayback();
+    }
+  }
+
+  /* ==========================================================================
+     5. DYNAMIC COLOR EXTRACTOR (WITH SAFE SPICETIFY POLLING)
      ========================================================================== */
   class DynamicColorExtractor {
     constructor(settings) {
@@ -669,98 +812,51 @@
   }
 
   /* ==========================================================================
-     5. ZERO-CPU DOM TRANSPARENCY OBSERVER & CLEANER
+     6. ZERO-CPU DOM CLASS INJECTION & OBSERVER (NO REPAINT THRASHING)
      ========================================================================== */
-  function clearElementBg(el) {
-    if (!el || !el.style) return;
-    if (el.style.getPropertyValue("background-color") !== "transparent") {
-      el.style.setProperty("background", "transparent", "important");
-      el.style.setProperty("background-color", "transparent", "important");
-      el.style.setProperty("box-shadow", "none", "important");
+  function injectSyncClasses() {
+    if (!document.body.classList.contains("we-sync-active")) {
+      document.body.classList.add("we-sync-active");
     }
-    if (el.style.getPropertyValue("--lyrics-color-background") && el.style.getPropertyValue("--lyrics-color-background") !== "transparent") {
-      el.style.setProperty("--lyrics-color-background", "transparent", "important");
+    if (!document.documentElement.classList.contains("we-sync-active")) {
+      document.documentElement.classList.add("we-sync-active");
     }
-  }
-
-  let debounceTimer = null;
-  function enforceFullTransparency() {
-    if (debounceTimer) clearTimeout(debounceTimer);
-    debounceTimer = setTimeout(() => {
-      const query = `
-        .main-view-container__scroll-node-child div[style*="background-color"],
-        section[data-testid] div[style*="background-color"],
-        header div[style*="background-color"],
-        [data-testid="topbar"] div[style*="background-color"],
-        .Root__right-sidebar div[style*="background-color"],
-        aside.NowPlayingView div[style*="background-color"],
-        [data-testid="RightSidebar"] div[style*="background-color"],
-        #Desktop_LeftSidebar_Id div[style*="background-color"],
-        [data-testid="lyrics-page"],
-        .main-lyricsCinema-container,
-        div[style*="--lyrics-color-background"]
-      `;
-      const candidates = document.querySelectorAll(query);
-      candidates.forEach((el) => {
-        // Protect buttons, progress bars, tooltips, menus and modal elements
-        if (el.closest('[data-testid="play-button"]') ||
-            el.closest('[data-testid="control-button-playpause"]') ||
-            el.closest('.encore-bright-accent-set') ||
-            el.closest('.encore-inverted-light-set') ||
-            el.closest('[data-testid*="progress"]') ||
-            el.closest('.playback-bar') ||
-            el.closest('#we-settings-modal') ||
-            el.closest('#we-settings-modal-overlay') ||
-            el.closest('#we-sync-toast') ||
-            el.closest('[role="dialog"]') ||
-            el.closest('[role="menu"]') ||
-            el.closest('[role="tooltip"]') ||
-            el.closest('.main-contextMenu-tippy') ||
-            el.closest('[data-tippy-root]') ||
-            el.closest('.main-contextMenu-menu') ||
-            el.closest('.GenericModal__overlay') ||
-            el.style.backgroundImage.includes("url(")) {
-          return;
-        }
-        clearElementBg(el);
-      });
-    }, 180);
   }
 
   function initDOMObserver() {
-    const observer = new MutationObserver(() => {
-      enforceFullTransparency();
-      if (window._weSettingsGUI && typeof window._weSettingsGUI.createTopbarButton === "function") {
-        if (!document.getElementById("we-settings-btn") && (!window.Spicetify || !document.querySelector(".main-topBar-button"))) {
-          window._weSettingsGUI.createTopbarButton();
-        }
-      }
-    });
-    observer.observe(document.body, { childList: true, subtree: true });
+    injectSyncClasses();
 
-    const tryBindScroll = () => {
-      const scrollNode = document.querySelector(".main-view-container__scroll-node");
-      if (scrollNode) {
-        scrollNode.addEventListener("scroll", () => enforceFullTransparency(), { passive: true });
-      } else {
-        setTimeout(tryBindScroll, 600);
-      }
-    };
-    tryBindScroll();
+    let throttleTimer = null;
+    const observer = new MutationObserver(() => {
+      if (throttleTimer) return;
+      throttleTimer = setTimeout(() => {
+        throttleTimer = null;
+        injectSyncClasses();
+        if (window._weSettingsGUI && typeof window._weSettingsGUI.createTopbarButton === "function") {
+          if (!window._weSettingsGUI.topbarInjected && !document.getElementById("we-settings-btn") && !document.querySelector('button[aria-label*="Spotify x Wallpaper Engine Studio"]')) {
+            window._weSettingsGUI.createTopbarButton();
+          }
+        }
+        ensureMediaContainers();
+      }, 500);
+    });
+
+    observer.observe(document.body, { childList: true, subtree: false });
   }
 
   /* ==========================================================================
-     6. WEBSOCKET SYNC CLIENT (WALLPAPER ENGINE MEDIA STREAM)
+     7. WEBSOCKET SYNC CLIENT (MULTI-FORMAT WALLPAPER STREAMING & CODEC FALLBACK)
      ========================================================================== */
   function ensureMediaContainers() {
-    if (!document.getElementById("we-sync-container")) {
-      const container = document.createElement("div");
+    let container = document.getElementById("we-sync-container");
+    if (!container) {
+      container = document.createElement("div");
       container.id = "we-sync-container";
-      container.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-3;overflow:hidden;";
+      container.style.cssText = "position:fixed;top:0;left:0;width:100vw;height:100vh;pointer-events:none;z-index:-2;overflow:hidden;";
 
       const img = document.createElement("img");
       img.id = "we-sync-img";
-      img.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.4s ease;";
+      img.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.4s ease;pointer-events:none;z-index:-2;";
 
       const video = document.createElement("video");
       video.id = "we-sync-video";
@@ -769,16 +865,16 @@
       video.muted = true;
       video.defaultMuted = true;
       video.playsInline = true;
-      video.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.4s ease;";
+      video.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;object-fit:cover;opacity:0;transition:opacity 0.4s ease;pointer-events:none;z-index:-2;";
 
       const overlay = document.createElement("div");
       overlay.id = "we-sync-overlay";
-      overlay.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,${settingsManager.config.overlayOpacity});transition:background-color 0.3s ease;z-index:-1;`;
+      overlay.style.cssText = `position:absolute;top:0;left:0;width:100%;height:100%;background-color:rgba(0,0,0,${settingsManager.config.overlayOpacity});transition:background-color 0.3s ease;z-index:-1;pointer-events:none;`;
 
       container.appendChild(img);
       container.appendChild(video);
       container.appendChild(overlay);
-      document.body.appendChild(container);
+      document.body.prepend(container);
     }
   }
 
@@ -798,44 +894,82 @@
   }
 
   function applyWallpaperMedia(data) {
-    if (!data || !data.type || !data.url) return;
+    if (!data || !data.type) return;
+    ensureMediaContainers();
     const img = document.getElementById("we-sync-img");
     const video = document.getElementById("we-sync-video");
     if (!img || !video) return;
 
+    const renderImage = (imgUrl) => {
+      if (!imgUrl) return;
+      video.style.opacity = "0";
+      if (!video.paused) {
+        try { video.pause(); } catch (e) {}
+      }
+      const cleanExisting = (img.src || "").split("?")[0];
+      const cleanNew = imgUrl.split("?")[0];
+      if (cleanExisting !== cleanNew || !img.src || img.style.opacity !== "1") {
+        img.onload = () => {
+          img.style.opacity = "1";
+        };
+        img.onerror = () => {
+          console.warn("[WE-Sync] Failed to load wallpaper image:", imgUrl);
+        };
+        img.src = imgUrl;
+      } else {
+        img.style.opacity = "1";
+      }
+    };
+
     if (data.type === "video") {
-      img.style.opacity = "0";
+      const videoUrl = data.url || data.mediaUrl;
+      const previewFallback = data.previewUrl || `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/preview?t=${Date.now()}`;
+
+      // Issue E: Automatic codec fallback on error in Spotify CEF
+      video.onerror = () => {
+        console.warn("[WE-Sync] Video streaming failed or unsupported CEF codec. Falling back to preview thumbnail.");
+        video.style.opacity = "0";
+        renderImage(previewFallback);
+      };
+
+      if (!videoUrl) {
+        renderImage(previewFallback);
+        return;
+      }
+
       const cleanExisting = (video.src || "").split("?")[0];
-      const cleanNew = (data.url || "").split("?")[0];
+      const cleanNew = videoUrl.split("?")[0];
       if (cleanExisting !== cleanNew || !video.src) {
         video.defaultMuted = true;
         video.muted = true;
         video.autoplay = true;
         video.loop = true;
-        video.src = data.url;
+        video.playsInline = true;
+        video.src = videoUrl;
         video.oncanplay = () => {
+          img.style.opacity = "0";
           video.style.opacity = "1";
-          video.play().catch(() => {});
+          video.play().catch(() => {
+            video.onerror();
+          });
         };
-        video.play().catch(() => {});
+        video.play().catch(() => {
+          // Handled by oncanplay and onerror
+        });
       } else {
+        img.style.opacity = "0";
         video.style.opacity = "1";
         if (video.paused) {
           video.play().catch(() => {});
         }
       }
     } else if (data.type === "image") {
-      video.style.opacity = "0";
-      const cleanExisting = (img.src || "").split("?")[0];
-      const cleanNew = (data.url || "").split("?")[0];
-      if (cleanExisting !== cleanNew || !img.src) {
-        img.src = data.url;
-        img.onload = () => {
-          img.style.opacity = "1";
-        };
-      } else {
-        img.style.opacity = "1";
-      }
+      const imgUrl = data.url || data.mediaUrl;
+      renderImage(imgUrl);
+    } else if (data.type === "scene" || data.type === "web" || data.type === "pkg") {
+      // Issue B: Restore scene (.pkg) & web wallpaper handlers via previewUrl
+      const targetUrl = data.url || data.previewUrl || data.mediaUrl || `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/preview?t=${Date.now()}`;
+      renderImage(targetUrl);
     }
   }
 
@@ -844,8 +978,12 @@
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
-        if (data && data.mediaType && data.mediaType !== "none" && data.mediaUrl) {
-          applyWallpaperMedia({ type: data.mediaType, url: data.mediaUrl });
+        if (data && data.mediaType && data.mediaType !== "none" && (data.mediaUrl || data.previewUrl)) {
+          applyWallpaperMedia({ 
+            type: data.mediaType, 
+            url: data.mediaUrl, 
+            previewUrl: data.previewUrl 
+          });
         }
       })
       .catch(() => {});
@@ -888,7 +1026,7 @@
       ws.onclose = () => {
         updateConnectionStatus(false);
         currentWsHost = currentWsHost === "127.0.0.1" ? "localhost" : "127.0.0.1";
-        reconnectTimer = setTimeout(() => connectWebSocket(), 2500);
+        reconnectTimer = setTimeout(() => connectWebSocket(), WE_CONFIG.RECONNECT_DELAY);
       };
 
       ws.onerror = () => {
@@ -897,12 +1035,12 @@
     } catch (err) {
       updateConnectionStatus(false);
       currentWsHost = currentWsHost === "127.0.0.1" ? "localhost" : "127.0.0.1";
-      reconnectTimer = setTimeout(() => connectWebSocket(), 2500);
+      reconnectTimer = setTimeout(() => connectWebSocket(), WE_CONFIG.RECONNECT_DELAY);
     }
   }
 
   /* ==========================================================================
-     7. BOOTSTRAPPER & GUARDED INITIALIZATION
+     8. BOOTSTRAPPER & GUARDED INITIALIZATION
      ========================================================================== */
   function bootstrap() {
     if (!document.body) {
@@ -914,14 +1052,15 @@
       return;
     }
     try {
+      injectSyncClasses();
       ensureMediaContainers();
       new WESettingsGUI(settingsManager);
       new AudioWaveVisualizer(settingsManager);
       new DynamicColorExtractor(settingsManager);
+      new CatJamWidget(settingsManager);
       initDOMObserver();
       connectWebSocket();
-      enforceFullTransparency();
-      console.log("[WE-Sync] Studio Suite v3.1.0 initialized successfully.");
+      console.log("[WE-Sync] Studio Suite v3.1.1 initialized successfully.");
     } catch (err) {
       console.error("[WE-Sync] Initialization error:", err);
     }

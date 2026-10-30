@@ -590,6 +590,36 @@ function broadcastWallpaper(payload) {
     }
 }
 
+function findPreviewImage(wp, resolved) {
+    if (resolved && isImageFile(resolved)) return resolved;
+    if (!wp) return "";
+    try {
+        const dir = fs.existsSync(wp) && fs.statSync(wp).isDirectory() ? wp : path.dirname(wp);
+        const candidates = [
+            path.join(dir, "preview.jpg"),
+            path.join(dir, "preview.png"),
+            path.join(dir, "preview.gif"),
+            path.join(dir, "preview.webp"),
+            path.join(dir, "scene.jpg"),
+            path.join(dir, "scene.png")
+        ];
+        for (const c of candidates) {
+            if (fs.existsSync(c) && fs.statSync(c).size > 0) return c;
+        }
+        const projectJson = path.join(dir, "project.json");
+        if (fs.existsSync(projectJson)) {
+            try {
+                const p = JSON.parse(fs.readFileSync(projectJson, "utf-8"));
+                if (p.preview) {
+                    const prev = path.join(dir, p.preview.replace(/\//g, "\\"));
+                    if (fs.existsSync(prev) && fs.statSync(prev).size > 0) return prev;
+                }
+            } catch (e) {}
+        }
+    } catch (e) {}
+    return (resolved && isImageFile(resolved)) ? resolved : "";
+}
+
 function getActiveWallpaperPayload() {
     let wp = "";
     const weWp = getCurrentWallpaper();
@@ -607,14 +637,53 @@ function getActiveWallpaperPayload() {
     }
 
     const resolved = resolveMediaFile(wp);
-    const ext = resolved ? path.extname(resolved).toLowerCase() : "";
-    const isVid = ext.match(/\.(mp4|webm|avi|mkv|mov)$/);
-    const mediaType = isVid ? "video" : (resolved ? "image" : "none");
-    const mediaUrl = mediaType !== "none" ? `http://127.0.0.1:${PORT}/${mediaType}?t=${Date.now()}` : "";
+    const resolvedExt = resolved ? path.extname(resolved).toLowerCase() : "";
+    const rawExt = wp ? path.extname(wp).toLowerCase() : "";
+
+    // Phân loại định dạng đa phương tiện: video, image, scene (.pkg), web (.html)
+    let mediaType = "none";
+    let isVid = false;
+
+    if (resolvedExt.match(/\.(mp4|webm|avi|mkv|mov)$/)) {
+        mediaType = "video";
+        isVid = true;
+    } else if (rawExt === ".pkg" || wp.toLowerCase().includes("scene.pkg")) {
+        mediaType = "scene";
+    } else if (rawExt === ".html" || wp.toLowerCase().includes("index.html")) {
+        mediaType = "web";
+    } else if (path.basename(wp).toLowerCase() === "project.json") {
+        try {
+            const pData = JSON.parse(fs.readFileSync(wp, "utf-8"));
+            const pType = (pData.type || "").toLowerCase();
+            if (pType === "scene") mediaType = "scene";
+            else if (pType === "web") mediaType = "web";
+            else if (pType === "video") {
+                mediaType = "video";
+                isVid = true;
+            } else {
+                mediaType = resolved ? "image" : "none";
+            }
+        } catch (e) {
+            mediaType = resolved ? "image" : "none";
+        }
+    } else if (resolved) {
+        mediaType = "image";
+    }
+
+    // Tạo previewUrl ảnh xem trước cho video thumbnail hoặc Scene/Web fallback
+    const previewFile = findPreviewImage(wp, resolved);
+    const previewUrl = previewFile 
+        ? `http://127.0.0.1:${PORT}/preview?t=${Date.now()}` 
+        : (resolved && !isVid ? `http://127.0.0.1:${PORT}/image?t=${Date.now()}` : "");
+
+    const mediaUrl = isVid 
+        ? `http://127.0.0.1:${PORT}/video?t=${Date.now()}` 
+        : (mediaType !== "none" ? `http://127.0.0.1:${PORT}/image?t=${Date.now()}` : "");
 
     return {
         type: mediaType,
         url: mediaUrl,
+        previewUrl: previewUrl || mediaUrl,
         wallpaper: wp,
         resolvedMedia: resolved,
         weRunning: isWeRunningCache
@@ -682,18 +751,67 @@ const server = http.createServer(async (req, res) => {
             const payload = getActiveWallpaperPayload();
             res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
             res.end(JSON.stringify({
-                version: "3.1.0",
+                version: "3.1.1",
                 status: "ok",
                 weRunning: payload.weRunning,
                 wallpaper: payload.wallpaper,
                 resolvedMedia: payload.resolvedMedia,
                 mediaType: payload.type,
                 mediaUrl: payload.url,
+                previewUrl: payload.previewUrl,
                 clients: wsClients.size
             }, null, 2));
         } catch (e) {
             res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" });
             res.end(JSON.stringify({ status: "error", message: e.message }));
+        }
+        return;
+    }
+
+    // Endpoint: /preview hoặc /pkg_preview - Phục vụ ảnh thumbnail xem trước (Fallback khi video lỗi hoặc Scene)
+    if (req.url.startsWith("/preview") || req.url.startsWith("/pkg_preview")) {
+        let wp = "";
+        const weWp = getCurrentWallpaper();
+        if (isWeRunningCache && weWp && fs.existsSync(weWp)) {
+            wp = weWp;
+        } else if (weWp && fs.existsSync(weWp)) {
+            wp = weWp;
+        }
+        if (!wp || !fs.existsSync(wp)) {
+            if (cachedWindowsWallpaper && fs.existsSync(cachedWindowsWallpaper)) {
+                wp = cachedWindowsWallpaper;
+            }
+        }
+        const resolved = resolveMediaFile(wp);
+        let previewFile = findPreviewImage(wp, resolved);
+        if (!previewFile || !fs.existsSync(previewFile)) {
+            previewFile = resolved;
+        }
+
+        if (!previewFile || !fs.existsSync(previewFile) || !isImageFile(previewFile)) {
+            res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
+            res.end("Không tìm thấy ảnh xem trước (preview thumbnail)");
+            return;
+        }
+
+        try {
+            const stat = fs.statSync(previewFile);
+            const mimeType = getImageMime(previewFile);
+            res.writeHead(200, {
+                "Content-Type": mimeType,
+                "Content-Length": stat.size,
+                "Cache-Control": "no-cache"
+            });
+            if (req.method === "HEAD") {
+                res.end();
+                return;
+            }
+            fs.createReadStream(previewFile).pipe(res);
+        } catch (e) {
+            if (!res.headersSent) {
+                res.writeHead(500, { "Content-Type": "text/plain; charset=utf-8" });
+                res.end("Không thể đọc file preview: " + e.message);
+            }
         }
         return;
     }
@@ -712,7 +830,14 @@ const server = http.createServer(async (req, res) => {
                 wp = cachedWindowsWallpaper;
             }
         }
+        const rawWp = wp;
         wp = resolveMediaFile(wp);
+        if (!wp || !fs.existsSync(wp) || !isImageFile(wp)) {
+            const previewFallback = findPreviewImage(rawWp, wp);
+            if (previewFallback && fs.existsSync(previewFallback) && isImageFile(previewFallback)) {
+                wp = previewFallback;
+            }
+        }
         if (!wp || !fs.existsSync(wp)) {
             res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
             res.end("Không tìm thấy hình nền phù hợp");
