@@ -179,11 +179,16 @@ function extractPkgTexture(pkgPath, outputDir) {
         const stat = fs.statSync(pkgPath);
         if (stat.size < 16) return "";
 
-        const pkgName = path.basename(pkgPath, path.extname(pkgPath));
-        const outHdImage = path.join(outputDir, `${pkgName}_hd.png`);
-        if (fs.existsSync(outHdImage) && fs.statSync(outHdImage).size > 0) {
-            return outHdImage;
-        }
+        // Băm MD5 dựa trên đường dẫn tuyệt đối và thời gian sửa đổi (mtime)
+        // để tạo cache độc lập cho từng hình nền riêng biệt (tránh xung đột khi mọi file đều tên scene.pkg)
+        const hash = crypto.createHash("md5").update(pkgPath + stat.mtimeMs).digest("hex").slice(0, 12);
+        const folderId = path.basename(path.dirname(pkgPath));
+        const cachePrefix = `scene_${folderId}_${hash}`;
+
+        const cachedPng = path.join(outputDir, `${cachePrefix}.png`);
+        if (fs.existsSync(cachedPng) && fs.statSync(cachedPng).size > 0) return cachedPng;
+        const cachedJpg = path.join(outputDir, `${cachePrefix}.jpg`);
+        if (fs.existsSync(cachedJpg) && fs.statSync(cachedJpg).size > 0) return cachedJpg;
 
         const buffer = fs.readFileSync(pkgPath);
         const pngMagic = Buffer.from([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]);
@@ -229,7 +234,7 @@ function extractPkgTexture(pkgPath, outputDir) {
         }
 
         if (bestCandidate && maxCandidateSize > 30000) {
-            const outPath = path.join(outputDir, `${pkgName}_hd${bestCandidate.ext}`);
+            const outPath = path.join(outputDir, `${cachePrefix}${bestCandidate.ext}`);
             fs.writeFileSync(outPath, buffer.subarray(bestCandidate.start, bestCandidate.end));
             return outPath;
         }
@@ -670,15 +675,20 @@ function getActiveWallpaperPayload() {
         mediaType = "image";
     }
 
+    // Hash định danh media độc nhất để Client phân biệt được thay đổi hình nền ngay cả khi cùng endpoint
+    const mediaHash = resolved && fs.existsSync(resolved)
+        ? crypto.createHash("md5").update(resolved + fs.statSync(resolved).mtimeMs).digest("hex").slice(0, 10)
+        : (wp ? crypto.createHash("md5").update(wp).digest("hex").slice(0, 10) : Date.now().toString(16));
+
     // Tạo previewUrl ảnh xem trước cho video thumbnail hoặc Scene/Web fallback
     const previewFile = findPreviewImage(wp, resolved);
     const previewUrl = previewFile 
-        ? `http://127.0.0.1:${PORT}/preview?t=${Date.now()}` 
-        : (resolved && !isVid ? `http://127.0.0.1:${PORT}/image?t=${Date.now()}` : "");
+        ? `http://127.0.0.1:${PORT}/preview/${mediaHash}?t=${Date.now()}` 
+        : (resolved && !isVid ? `http://127.0.0.1:${PORT}/image/${mediaHash}?t=${Date.now()}` : "");
 
     const mediaUrl = isVid 
-        ? `http://127.0.0.1:${PORT}/video?t=${Date.now()}` 
-        : (mediaType !== "none" ? `http://127.0.0.1:${PORT}/image?t=${Date.now()}` : "");
+        ? `http://127.0.0.1:${PORT}/video/${mediaHash}?t=${Date.now()}` 
+        : (mediaType !== "none" ? `http://127.0.0.1:${PORT}/image/${mediaHash}?t=${Date.now()}` : "");
 
     return {
         type: mediaType,

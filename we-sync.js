@@ -983,7 +983,7 @@
       }
       const cleanExisting = (img.src || "").split("?")[0];
       const cleanNew = imgUrl.split("?")[0];
-      if (cleanExisting !== cleanNew || !img.src || img.style.opacity !== "1") {
+      if (cleanExisting !== cleanNew || img.src !== imgUrl || !img.src || img.style.opacity !== "1") {
         img.onload = () => {
           img.style.opacity = "1";
         };
@@ -1014,7 +1014,7 @@
 
       const cleanExisting = (video.src || "").split("?")[0];
       const cleanNew = videoUrl.split("?")[0];
-      if (cleanExisting !== cleanNew || !video.src) {
+      if (cleanExisting !== cleanNew || video.src !== videoUrl || !video.src) {
         video.defaultMuted = true;
         video.muted = true;
         video.autoplay = true;
