@@ -630,9 +630,27 @@
       this.createVideoElement();
 
       const bindPlayer = () => {
-        if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.addEventListener) {
-          Spicetify.Player.addEventListener("onplaypause", () => this.syncPlayback());
-          Spicetify.Player.addEventListener("songchange", () => this.syncTrackBpm());
+        if (typeof Spicetify !== "undefined") {
+          if (Spicetify.Player && Spicetify.Player.addEventListener) {
+            Spicetify.Player.addEventListener("onplaypause", () => this.syncPlayback());
+            Spicetify.Player.addEventListener("songchange", () => this.syncTrackBpm());
+          }
+          if (Spicetify.Platform && Spicetify.Platform.PlayerAPI && Spicetify.Platform.PlayerAPI.getEvents) {
+            try {
+              Spicetify.Platform.PlayerAPI.getEvents().addListener("update", () => {
+                this.syncPlayback();
+                this.syncTrackBpm();
+              });
+            } catch (e) {}
+          }
+
+          const playBtn = document.querySelector('button[data-testid="control-button-playpause"]');
+          if (playBtn) {
+            playBtn.addEventListener("click", () => {
+              setTimeout(() => this.syncPlayback(), 100);
+            });
+          }
+
           this.syncPlayback();
           this.syncTrackBpm();
         } else {
@@ -646,6 +664,47 @@
       });
     }
 
+    getIsPlaying() {
+      try {
+        if (typeof Spicetify !== "undefined" && Spicetify.Platform && Spicetify.Platform.PlayerAPI && Spicetify.Platform.PlayerAPI.getState) {
+          const s = Spicetify.Platform.PlayerAPI.getState();
+          if (s && typeof s.isPaused === "boolean") return !s.isPaused;
+        }
+      } catch (e) {}
+
+      try {
+        if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.isPlaying) {
+          if (Spicetify.Player.isPlaying()) return true;
+        }
+      } catch (e) {}
+
+      const btn = document.querySelector('button[data-testid="control-button-playpause"]');
+      if (btn) {
+        const label = (btn.getAttribute("aria-label") || "").toLowerCase();
+        if (label.includes("pause") || label.includes("tạm dừng")) return true;
+        if (label.includes("play") || label.includes("phát")) return false;
+      }
+      return false;
+    }
+
+    getCurrentTrack() {
+      try {
+        if (typeof Spicetify !== "undefined" && Spicetify.Platform && Spicetify.Platform.PlayerAPI && Spicetify.Platform.PlayerAPI.getState) {
+          const s = Spicetify.Platform.PlayerAPI.getState();
+          if (s && s.item) return s.item;
+        }
+      } catch (e) {}
+
+      try {
+        if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.data) {
+          const t = Spicetify.Player.data.track || Spicetify.Player.data.item;
+          if (t) return t;
+        }
+      } catch (e) {}
+
+      return null;
+    }
+
     createVideoElement() {
       if (document.getElementById("catjam-webm")) {
         this.video = document.getElementById("catjam-webm");
@@ -653,7 +712,8 @@
         return;
       }
 
-      const target = document.querySelector(".main-nowPlayingBar-right") || 
+      const target = document.querySelector(".main-nowPlayingBar-extraControls") ||
+                     document.querySelector(".main-nowPlayingBar-right") || 
                      document.querySelector(".main-yourLibraryX-libraryItemContainer");
       if (!target) {
         setTimeout(() => this.createVideoElement(), 800);
@@ -668,7 +728,15 @@
       v.defaultMuted = true;
       v.playsInline = true;
       v.src = `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/catjam.webm`;
-      v.style.cssText = `height:${this.settings.config.catJamSize}px;width:auto;aspect-ratio:790/604;object-fit:contain;pointer-events:none;transition:width 0.2s,height 0.2s;display:${this.settings.config.catJamEnabled ? "inline-block" : "none"};`;
+      v.title = "Cat Jam (Bấm để mở bảng điều khiển WE-Sync Studio)";
+      v.style.cssText = `height:${this.settings.config.catJamSize || 42}px;width:auto;aspect-ratio:790/604;object-fit:contain;cursor:pointer;pointer-events:auto;transition:transform 0.15s ease, opacity 0.2s;display:${this.settings.config.catJamEnabled ? "inline-block" : "none"};`;
+
+      v.addEventListener("click", (e) => {
+        e.stopPropagation();
+        if (window._weSettingsGUI) {
+          window._weSettingsGUI.toggleModal();
+        }
+      });
 
       if (target.firstChild) {
         target.insertBefore(v, target.firstChild);
@@ -697,7 +765,7 @@
 
     syncPlayback() {
       if (!this.video || !this.settings.config.catJamEnabled) return;
-      const isPlaying = typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.isPlaying();
+      const isPlaying = this.getIsPlaying();
       if (isPlaying) {
         this.video.play().catch(() => {});
       } else {
@@ -707,9 +775,7 @@
 
     syncTrackBpm() {
       if (!this.video || !this.settings.config.catJamEnabled) return;
-      if (typeof Spicetify === "undefined" || !Spicetify.Player || !Spicetify.Player.data) return;
-
-      const track = Spicetify.Player.data.track;
+      const track = this.getCurrentTrack();
       if (!track || !track.uri) return;
       if (track.uri === this.currentTrackUri) return;
       this.currentTrackUri = track.uri;
@@ -743,8 +809,15 @@
 
     init() {
       const bindSongChange = () => {
-        if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.addEventListener) {
-          Spicetify.Player.addEventListener("songchange", () => this.extractFromCurrentTrack());
+        if (typeof Spicetify !== "undefined") {
+          if (Spicetify.Player && Spicetify.Player.addEventListener) {
+            Spicetify.Player.addEventListener("songchange", () => this.extractFromCurrentTrack());
+          }
+          if (Spicetify.Platform && Spicetify.Platform.PlayerAPI && Spicetify.Platform.PlayerAPI.getEvents) {
+            try {
+              Spicetify.Platform.PlayerAPI.getEvents().addListener("update", () => this.extractFromCurrentTrack());
+            } catch (e) {}
+          }
           this.extractFromCurrentTrack();
         } else {
           setTimeout(bindSongChange, 500);
@@ -757,8 +830,10 @@
       if (!this.settings.config.colorExtraction) return;
 
       let imgUrl = null;
-      if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.data && Spicetify.Player.data.track) {
-        const meta = Spicetify.Player.data.track.metadata;
+      const currentTrack = (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.data) ?
+                           (Spicetify.Player.data.track || Spicetify.Player.data.item) : null;
+      if (currentTrack && currentTrack.metadata) {
+        const meta = currentTrack.metadata;
         imgUrl = meta.image_xlarge_url || meta.image_large_url || meta.image_url;
       }
 
