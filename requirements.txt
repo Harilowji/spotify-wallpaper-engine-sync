@@ -1,0 +1,10 @@
+# Core HTTP & Image Processing
+requests>=2.31.0
+Pillow>=10.0.0
+
+# Environment & OAuth Support
+python-dotenv>=1.0.0
+spotipy>=2.23.0
+
+# Color Extraction (Tùy chọn bổ sung)
+colorthief>=0.2.1

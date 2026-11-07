@@ -19,6 +19,14 @@ yarn-error.log*
 # Temp cache folder
 spotify_we_cache/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.spotify_token_cache.json
+.venv/
+env/
+
 # OS specific
 Thumbs.db
 Desktop.ini
