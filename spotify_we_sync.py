@@ -6,46 +6,45 @@ Spotify x Wallpaper Engine Sync Engine (v3.2.1 Enterprise Edition)
 Tự động hóa đồng bộ trạng thái phát nhạc Spotify và Wallpaper Engine chuyên nghiệp
 Phát triển & Tối ưu bởi: Harilowji (https://github.com/Harilowji)
 ================================================================================
-Tính năng cốt lõi:
-1. Xử lý triệt để 100% ngoại lệ: None/null, Quảng cáo (Ads), Podcast/Episode, Nhạc nội bộ (Local Files).
-2. Tự phục hồi mạng: Exponential Backoff, HTTP 429 Rate Limit (Retry-After), Auto-refresh OAuth2 Token 24/7.
-3. Tự động bắt OAuth Callback bằng HTTP Server tích hợp (webbrowser), không cần copy-paste thủ công.
-4. Điều khiển Wallpaper Engine siêu tốc: Tự dò tìm đa ổ đĩa, chạy ngầm tuyệt đối (CREATE_NO_WINDOW).
-5. Đổi hình nền theo thể loại nhạc (genre_wallpaper_mapping) kèm RAM cache thông tin nghệ sĩ.
-6. Fallback Timer tự động: Chuyển về hình nền/màu mặc định khi tắt hoặc dừng nhạc quá [X] giây.
-7. Hiệu năng đỉnh cao: Caching trạng thái bài hát, xử lý ảnh thumbnail nhỏ nhất hoàn toàn trên RAM (io.BytesIO).
-8. Tách biệt cấu hình: Quản lý qua .env và config.json, hệ thống Logging đa tầng chuẩn Enterprise.
+Cập nhật v3.2.1:
+1. Tự động bắt OAuth Callback qua Local HTTP Server (không cần copy-paste URL).
+2. Hoàn thiện đồng bộ hình nền theo thể loại nhạc (genre_wallpaper_mapping) kèm RAM Cache.
+3. Xử lý triệt để 100% ngoại lệ: None/null, Ads, Podcast, Local Files, HTTP 429.
+4. Chạy ngầm tuyệt đối (CREATE_NO_WINDOW) và xử lý màu ảnh bìa trên RAM (io.BytesIO).
 ================================================================================
 """
 
-import os
-import sys
-import time
-import json
-import io
-import re
 import base64
+from http.server import BaseHTTPRequestHandler, HTTPServer
+import io
+import json
 import logging
+from logging.handlers import RotatingFileHandler
+import os
+import re
 import signal
 import subprocess
-import webbrowser
-import http.server
+import sys
+import time
+from typing import Any, Dict, List, Optional, Tuple
 import urllib.parse
-from pathlib import Path
-from typing import Optional, Dict, Any, Tuple, List
-from logging.handlers import RotatingFileHandler
+import webbrowser
 
-# Thư viện mạng & xử lý ảnh (Thuần Python & Pillow tối ưu nhẹ)
+# Thư viện mạng & xử lý ảnh
 try:
     import requests
 except ImportError:
-    print("[CRITICAL] Thiếu thư viện 'requests'. Vui lòng cài đặt: pip install requests")
+    print(
+        "[CRITICAL] Thiếu thư viện 'requests'. Vui lòng cài đặt: pip install requests"
+    )
     sys.exit(1)
 
 try:
     from PIL import Image
 except ImportError:
-    print("[CRITICAL] Thiếu thư viện 'Pillow'. Vui lòng cài đặt: pip install Pillow")
+    print(
+        "[CRITICAL] Thiếu thư viện 'Pillow'. Vui lòng cài đặt: pip install Pillow"
+    )
     sys.exit(1)
 
 
@@ -53,9 +52,10 @@ except ImportError:
 # 1. HỆ THỐNG LOGGING CHUYÊN NGHIỆP (ENTERPRISE LOGGING)
 # ==============================================================================
 def setup_logger(config: Dict[str, Any]) -> logging.Logger:
-    """
-    Khởi tạo hệ thống Logging chuyên nghiệp với xuất định dạng chuẩn thời gian,
-    hỗ trợ ghi file tự động xoay vòng (Rotating File Handler) và hiển thị console.
+    """Khởi tạo hệ thống Logging chuyên nghiệp với xuất định dạng chuẩn thời gian,
+
+    hỗ trợ ghi file tự động xoay vòng (Rotating File Handler) và hiển thị
+    console.
     """
     log_cfg = config.get("logging", {})
     log_level_name = log_cfg.get("level", "INFO").upper()
@@ -67,7 +67,7 @@ def setup_logger(config: Dict[str, Any]) -> logging.Logger:
 
     formatter = logging.Formatter(
         fmt="%(asctime)s [%(levelname)-7s] %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S"
+        datefmt="%Y-%m-%d %H:%M:%S",
     )
 
     # 1. Console Handler
@@ -76,7 +76,7 @@ def setup_logger(config: Dict[str, Any]) -> logging.Logger:
     console_handler.setFormatter(formatter)
     logger.addHandler(console_handler)
 
-    # 2. Rotating File Handler (Nếu được bật)
+    # 2. Rotating File Handler
     if log_cfg.get("log_to_file", True):
         log_file = log_cfg.get("log_file_path", "spotify_we_sync.log")
         max_bytes = int(log_cfg.get("max_file_size_mb", 5)) * 1024 * 1024
@@ -87,7 +87,7 @@ def setup_logger(config: Dict[str, Any]) -> logging.Logger:
                 filename=log_file,
                 maxBytes=max_bytes,
                 backupCount=backup_count,
-                encoding="utf-8"
+                encoding="utf-8",
             )
             file_handler.setLevel(log_level)
             file_handler.setFormatter(formatter)
@@ -102,18 +102,15 @@ def setup_logger(config: Dict[str, Any]) -> logging.Logger:
 # 2. TÁCH BIỆT CẤU HÌNH & QUẢN LÝ MÔI TRƯỜNG (.ENV & CONFIG.JSON)
 # ==============================================================================
 def load_env_file(env_path: str = ".env") -> None:
-    """
-    Đọc biến môi trường từ file .env.
-    Tự tích hợp bộ giải mã nội bộ nếu máy chưa cài python-dotenv.
-    """
+    """Đọc biến môi trường từ file .env."""
     if not os.path.exists(env_path):
         return
 
     try:
         from dotenv import load_dotenv
+
         load_dotenv(env_path)
     except ImportError:
-        # Bộ nạp .env thuần Python dự phòng
         try:
             with open(env_path, "r", encoding="utf-8") as f:
                 for line in f:
@@ -130,29 +127,27 @@ def load_env_file(env_path: str = ".env") -> None:
 
 
 def load_config(config_path: str = "config.json") -> Dict[str, Any]:
-    """
-    Tải file cấu hình config.json, tự động khởi tạo cấu hình mặc định an toàn.
-    """
+    """Tải file cấu hình config.json, tự động khởi tạo cấu hình mặc định an toàn."""
     default_config = {
         "sync_settings": {
             "polling_interval_seconds": 2.0,
             "pause_timeout_seconds": 30.0,
             "request_timeout_seconds": 5.0,
             "max_retries": 5,
-            "backoff_factor": 1.5
+            "backoff_factor": 1.5,
         },
         "wallpaper_engine": {
             "custom_executable_path": "",
             "control_wallpaper": True,
             "control_accent_color": True,
             "default_wallpaper": "",
-            "default_accent_color": "#1DB954"
+            "default_accent_color": "#1DB954",
         },
         "album_color_extraction": {
             "enabled": True,
             "prefer_smallest_thumbnail": True,
             "color_quantization_levels": 8,
-            "saturation_boost": True
+            "saturation_boost": True,
         },
         "genre_wallpaper_mapping": {},
         "logging": {
@@ -160,8 +155,8 @@ def load_config(config_path: str = "config.json") -> Dict[str, Any]:
             "log_to_file": True,
             "log_file_path": "spotify_we_sync.log",
             "max_file_size_mb": 5,
-            "backup_count": 3
-        }
+            "backup_count": 3,
+        },
     }
 
     if os.path.exists(config_path):
@@ -174,7 +169,9 @@ def load_config(config_path: str = "config.json") -> Dict[str, Any]:
                     else:
                         default_config[section] = values
         except Exception as e:
-            print(f"[CẢNH BÁO] Không đọc được config.json ({e}), sử dụng thiết lập mặc định.")
+            print(
+                f"[CẢNH BÁO] Không đọc được config.json ({e}), sử dụng thiết lập mặc định."
+            )
 
     return default_config
 
@@ -183,8 +180,8 @@ def load_config(config_path: str = "config.json") -> Dict[str, Any]:
 # 3. ĐIỀU KHIỂN GIAO TIẾP WALLPAPER ENGINE (BACKGROUND CLI & NO-WINDOW)
 # ==============================================================================
 class WallpaperEngineController:
-    """
-    Quản lý giao tiếp với Wallpaper Engine thông qua giao diện dòng lệnh (CLI).
+    """Quản lý giao tiếp với Wallpaper Engine thông qua giao diện dòng lệnh (CLI).
+
     Tự động dò tìm đường dẫn cài đặt trên đa phân vùng ổ đĩa và thực thi ngầm
     tuyệt đối (CREATE_NO_WINDOW), không làm nháy cửa sổ console.
     """
@@ -196,7 +193,9 @@ class WallpaperEngineController:
         self.executable_path = self._locate_executable()
 
         if self.executable_path:
-            self.logger.info(f"Đã phát hiện Wallpaper Engine: {self.executable_path}")
+            self.logger.info(
+                f"Đã phát hiện Wallpaper Engine: {self.executable_path}"
+            )
         else:
             self.logger.error(
                 "KHÔNG TÌM THẤY Wallpaper Engine! Vui lòng kiểm tra đường dẫn hoặc "
@@ -205,7 +204,9 @@ class WallpaperEngineController:
 
     def _locate_executable(self) -> Optional[str]:
         """Tự động dò tìm wallpaper64.exe hoặc wallpaper32.exe."""
-        custom_path = self.we_cfg.get("custom_executable_path") or os.environ.get("WALLPAPER_ENGINE_EXE")
+        custom_path = self.we_cfg.get(
+            "custom_executable_path"
+        ) or os.environ.get("WALLPAPER_ENGINE_EXE")
         if custom_path and os.path.exists(custom_path):
             return custom_path
 
@@ -214,9 +215,13 @@ class WallpaperEngineController:
         # 1. Quét từ Registry Windows (Steam App 431960)
         try:
             import winreg
+
             for root in [winreg.HKEY_LOCAL_MACHINE, winreg.HKEY_CURRENT_USER]:
                 try:
-                    key = winreg.OpenKey(root, r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 431960")
+                    key = winreg.OpenKey(
+                        root,
+                        r"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Steam App 431960",
+                    )
                     val, _ = winreg.QueryValueEx(key, "InstallLocation")
                     if val and os.path.exists(val):
                         candidates.add(val)
@@ -227,14 +232,37 @@ class WallpaperEngineController:
                     val, _ = winreg.QueryValueEx(key, "SteamPath")
                     if val:
                         steam_dir = val.replace("/", "\\")
-                        candidates.add(os.path.join(steam_dir, "steamapps", "common", "wallpaper_engine"))
-                        vdf_path = os.path.join(steam_dir, "steamapps", "libraryfolders.vdf")
+                        candidates.add(
+                            os.path.join(
+                                steam_dir,
+                                "steamapps",
+                                "common",
+                                "wallpaper_engine",
+                            )
+                        )
+                        vdf_path = os.path.join(
+                            steam_dir, "steamapps", "libraryfolders.vdf"
+                        )
                         if os.path.exists(vdf_path):
-                            with open(vdf_path, "r", encoding="utf-8", errors="ignore") as vf:
+                            with open(
+                                vdf_path,
+                                "r",
+                                encoding="utf-8",
+                                errors="ignore",
+                            ) as vf:
                                 vdf_txt = vf.read()
-                                for m in re.finditer(r'"path"\s+"([^"]+)"', vdf_txt):
+                                for m in re.finditer(
+                                    r'"path"\s+"([^"]+)"', vdf_txt
+                                ):
                                     lib = m.group(1).replace("\\\\", "\\")
-                                    candidates.add(os.path.join(lib, "steamapps", "common", "wallpaper_engine"))
+                                    candidates.add(
+                                        os.path.join(
+                                            lib,
+                                            "steamapps",
+                                            "common",
+                                            "wallpaper_engine",
+                                        )
+                                    )
                 except OSError:
                     pass
         except Exception:
@@ -243,9 +271,15 @@ class WallpaperEngineController:
         # 2. Quét các ổ đĩa phổ thông từ C đến H
         for d in ["C", "D", "E", "F", "G", "H"]:
             candidates.add(f"{d}:\\Steam\\steamapps\\common\\wallpaper_engine")
-            candidates.add(f"{d}:\\SteamLibrary\\steamapps\\common\\wallpaper_engine")
-            candidates.add(f"{d}:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine")
-            candidates.add(f"{d}:\\Program Files\\Steam\\steamapps\\common\\wallpaper_engine")
+            candidates.add(
+                f"{d}:\\SteamLibrary\\steamapps\\common\\wallpaper_engine"
+            )
+            candidates.add(
+                f"{d}:\\Program Files (x86)\\Steam\\steamapps\\common\\wallpaper_engine"
+            )
+            candidates.add(
+                f"{d}:\\Program Files\\Steam\\steamapps\\common\\wallpaper_engine"
+            )
 
         for folder in candidates:
             for exe_name in ["wallpaper64.exe", "wallpaper32.exe"]:
@@ -256,12 +290,11 @@ class WallpaperEngineController:
         return None
 
     def execute_command(self, args: list) -> bool:
-        """
-        Thực thi lệnh CLI an toàn trên Windows với cờ CREATE_NO_WINDOW và SW_HIDE
-        để bảo đảm 100% không làm nháy màn hình game/ứng dụng của người dùng.
-        """
+        """Thực thi lệnh CLI ngầm tuyệt đối với cờ CREATE_NO_WINDOW."""
         if not self.executable_path or not os.path.exists(self.executable_path):
-            self.logger.warning("Bỏ qua lệnh CLI vì chưa xác định được file thực thi Wallpaper Engine.")
+            self.logger.warning(
+                "Bỏ qua lệnh CLI vì chưa xác định được file thực thi Wallpaper Engine."
+            )
             return False
 
         full_cmd = [self.executable_path] + args
@@ -273,7 +306,7 @@ class WallpaperEngineController:
                 startupinfo = subprocess.STARTUPINFO()
                 startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
                 startupinfo.wShowWindow = subprocess.SW_HIDE
-                creationflags = subprocess.CREATE_NO_WINDOW  # 0x08000000
+                creationflags = subprocess.CREATE_NO_WINDOW
 
             proc = subprocess.run(
                 full_cmd,
@@ -281,17 +314,23 @@ class WallpaperEngineController:
                 creationflags=creationflags,
                 capture_output=True,
                 text=True,
-                timeout=5.0
+                timeout=5.0,
             )
             return proc.returncode == 0
         except subprocess.TimeoutExpired:
-            self.logger.warning(f"Lệnh CLI Wallpaper Engine bị quá thời gian (Timeout 5s): {args}")
+            self.logger.warning(
+                f"Lệnh CLI Wallpaper Engine bị quá thời gian (Timeout 5s): {args}"
+            )
             return False
         except Exception as e:
-            self.logger.error(f"Lỗi khi thực thi lệnh Wallpaper Engine ({args}): {e}")
+            self.logger.error(
+                f"Lỗi khi thực thi lệnh Wallpaper Engine ({args}): {e}"
+            )
             return False
 
-    def open_wallpaper(self, wallpaper_path_or_id: str, monitor: Optional[int] = None) -> bool:
+    def open_wallpaper(
+        self, wallpaper_path_or_id: str, monitor: Optional[int] = None
+    ) -> bool:
         """Kích hoạt đổi hình nền theo đường dẫn file hoặc Workshop ID."""
         if not wallpaper_path_or_id:
             return False
@@ -300,14 +339,13 @@ class WallpaperEngineController:
         if monitor is not None:
             args.extend(["-location", str(monitor)])
 
-        self.logger.info(f"[Wallpaper Engine] Đang chuyển hình nền -> {wallpaper_path_or_id}")
+        self.logger.info(
+            f"[Wallpaper Engine] Đang chuyển hình nền -> {wallpaper_path_or_id}"
+        )
         return self.execute_command(args)
 
     def set_accent_color(self, hex_or_rgb: Any) -> bool:
-        """
-        Cập nhật màu sắc giao diện/hiệu ứng trong Wallpaper Engine (thuộc tính schemecolor).
-        Định dạng Wallpaper Engine: chuỗi 3 số thực từ 0.0 đến 1.0 cách nhau bởi dấu cách.
-        """
+        """Cập nhật màu sắc giao diện/hiệu ứng trong Wallpaper Engine (thuộc tính schemecolor)."""
         r, g, b = 29, 185, 84  # Mặc định: Spotify Green
 
         if isinstance(hex_or_rgb, (tuple, list)) and len(hex_or_rgb) >= 3:
@@ -322,54 +360,48 @@ class WallpaperEngineController:
                 except ValueError:
                     pass
 
-        # Chuẩn hóa về dải [0.0 - 1.0] cho Wallpaper Engine
         norm_r = f"{r / 255.0:.3f}"
         norm_g = f"{g / 255.0:.3f}"
         norm_b = f"{b / 255.0:.3f}"
         scheme_val = f"{norm_r} {norm_g} {norm_b}"
 
         props = json.dumps({"schemecolor": scheme_val})
-        self.logger.info(f"[Wallpaper Engine] Đồng bộ màu chủ đạo: RGB({r},{g},{b}) -> {props}")
-        return self.execute_command(["-control", "applyProperties", "-properties", props])
-
-    def control_playback(self, action: str) -> bool:
-        """Điều khiển phát nhạc của Wallpaper Engine: 'pause', 'play', 'stop'."""
-        if action in ["pause", "play", "stop"]:
-            return self.execute_command(["-control", action])
-        return False
+        self.logger.info(
+            f"[Wallpaper Engine] Đồng bộ màu chủ đạo: RGB({r},{g},{b}) -> {props}"
+        )
+        return self.execute_command(
+            ["-control", "applyProperties", "-properties", props]
+        )
 
 
 # ==============================================================================
 # 4. TRÍCH XUẤT MÀU SẮC ALBUM ART TRÊN BỘ NHỚ RAM (ZERO-DISK WEAR)
 # ==============================================================================
 class InMemoryColorExtractor:
-    """
-    Trích xuất màu sắc chủ đạo từ ảnh bìa Spotify hoàn toàn trên bộ nhớ RAM (io.BytesIO).
-    Tự động chọn ảnh thumbnail kích thước nhỏ nhất để tối ưu tốc độ gấp 10 lần,
-    hoàn toàn không ghi file tạm ra SSD giúp bảo vệ phần cứng.
-    """
+    """Trích xuất màu sắc chủ đạo từ ảnh bìa Spotify hoàn toàn trên bộ nhớ RAM (io.BytesIO)."""
 
     def __init__(self, logger: logging.Logger):
         self.logger = logger
 
-    def extract_dominant_color_from_url(self, image_url: str) -> Optional[Tuple[int, int, int]]:
+    def extract_dominant_color_from_url(
+        self, image_url: str
+    ) -> Optional[Tuple[int, int, int]]:
         """Tải ảnh và phân tích màu sắc trực tiếp trên RAM."""
         if not image_url:
             return None
 
         try:
-            # Tải ảnh trực tiếp vào RAM
             resp = requests.get(image_url, timeout=4.0)
             if resp.status_code != 200 or not resp.content:
                 return None
 
-            # Đọc byte trực tiếp bằng io.BytesIO
             with Image.open(io.BytesIO(resp.content)) as img:
-                # Chuyển đổi và thu nhỏ về 48x48 để phân tích siêu tốc (<2ms)
-                rgb_img = img.convert("RGB").resize((48, 48), Image.Resampling.BILINEAR)
-
-                # Giảm bảng màu xuống 8 màu nổi bật
-                quantized = rgb_img.quantize(colors=8, method=Image.Quantize.MEDIANCUT)
+                rgb_img = img.convert("RGB").resize(
+                    (48, 48), Image.Resampling.BILINEAR
+                )
+                quantized = rgb_img.quantize(
+                    colors=8, method=Image.Quantize.MEDIANCUT
+                )
                 palette = quantized.getpalette()[:24]
 
                 best_color = None
@@ -377,19 +409,14 @@ class InMemoryColorExtractor:
 
                 for i in range(0, len(palette), 3):
                     r, g, b = palette[i], palette[i + 1], palette[i + 2]
-
-                    # Tính độ sáng (Luminance)
                     brightness = (r * 299 + g * 587 + b * 114) / 1000.0
-                    # Loại bỏ màu quá tối (<30) hoặc quá sáng (>230)
                     if brightness < 30.0 or brightness > 230.0:
                         continue
 
-                    # Tính độ bão hòa (Saturation)
                     max_c = max(r, g, b)
                     min_c = min(r, g, b)
                     sat = ((max_c - min_c) / max_c) if max_c > 0 else 0.0
 
-                    # Ưu tiên màu sắc sống động, gần độ sáng cân bằng 128
                     score = (sat * 120.0) + (100.0 - abs(brightness - 128.0))
                     if score > max_score:
                         max_score = score
@@ -398,24 +425,17 @@ class InMemoryColorExtractor:
                 return best_color or (palette[0], palette[1], palette[2])
 
         except Exception as e:
-            self.logger.debug(f"Không thể trích xuất màu từ ảnh {image_url}: {e}")
+            self.logger.debug(
+                f"Không thể trích xuất màu từ ảnh {image_url}: {e}"
+            )
             return None
 
 
 # ==============================================================================
-# 5. SPOTIFY API CLIENT VỚI OAUTH HTTP SERVER & ARTIST GENRE CACHE
+# 5. SPOTIFY API CLIENT VỚI AUTO-CALLBACK SERVER & GENRE CACHING
 # ==============================================================================
 class SpotifyAPIClient:
-    """
-    Client kết nối Spotify Web API tối ưu hóa cho ứng dụng Desktop chạy ngầm 24/7.
-    Bảo vệ trước mọi lỗi ngoại lệ:
-    - Token Auto-refresh trước khi hết hạn.
-    - Tự động bắt OAuth Callback bằng HTTP Server cục bộ (webbrowser tích hợp).
-    - Bộ nhớ đệm thể loại ca sĩ trên RAM (artist_genre_cache).
-    - Xử lý lỗi HTTP 429 Rate Limit (Exponential Backoff kèm đọc Retry-After).
-    - Tự động bắt lỗi mạng tạm thời (Timeout, ConnectionError).
-    - Bóc tách an toàn các loại nội dung: Ads, Podcast, Local Files, Paused state.
-    """
+    """Client kết nối Spotify Web API tối ưu hóa cho ứng dụng Desktop chạy ngầm 24/7."""
 
     TOKEN_URL = "https://accounts.spotify.com/api/token"
     PLAYER_URL = "https://api.spotify.com/v1/me/player"
@@ -429,13 +449,15 @@ class SpotifyAPIClient:
 
         self.client_id = os.environ.get("SPOTIPY_CLIENT_ID", "")
         self.client_secret = os.environ.get("SPOTIPY_CLIENT_SECRET", "")
-        self.redirect_uri = os.environ.get("SPOTIPY_REDIRECT_URI", "http://localhost:8888/callback")
+        self.redirect_uri = os.environ.get(
+            "SPOTIPY_REDIRECT_URI", "http://localhost:8888/callback"
+        )
 
         self.access_token: Optional[str] = None
         self.refresh_token: Optional[str] = None
         self.token_expires_at: float = 0.0
 
-        # Bộ nhớ đệm RAM lưu thể loại của nghệ sĩ (tránh gọi lại API nhiều lần)
+        # Bộ nhớ đệm thể loại của nghệ sĩ trên RAM để tránh gọi lại API nhiều lần
         self.artist_genre_cache: Dict[str, List[str]] = {}
 
         self.backoff_delay = float(self.sync_cfg.get("backoff_factor", 1.5))
@@ -444,7 +466,6 @@ class SpotifyAPIClient:
         self._load_cached_token()
 
     def _load_cached_token(self) -> None:
-        """Đọc token từ bộ nhớ đệm an toàn."""
         if os.path.exists(self.TOKEN_CACHE_FILE):
             try:
                 with open(self.TOKEN_CACHE_FILE, "r", encoding="utf-8") as f:
@@ -456,14 +477,17 @@ class SpotifyAPIClient:
                 self.logger.warning(f"Không thể đọc token cache: {e}")
 
     def _save_cached_token(self) -> None:
-        """Lưu trữ token vào bộ nhớ đệm để tái sử dụng."""
         try:
             with open(self.TOKEN_CACHE_FILE, "w", encoding="utf-8") as f:
-                json.dump({
-                    "access_token": self.access_token,
-                    "refresh_token": self.refresh_token,
-                    "expires_at": self.token_expires_at
-                }, f, indent=2)
+                json.dump(
+                    {
+                        "access_token": self.access_token,
+                        "refresh_token": self.refresh_token,
+                        "expires_at": self.token_expires_at,
+                    },
+                    f,
+                    indent=2,
+                )
         except Exception as e:
             self.logger.warning(f"Không thể lưu token cache: {e}")
 
@@ -472,43 +496,99 @@ class SpotifyAPIClient:
         if not self.refresh_token or not self.client_id or not self.client_secret:
             return False
 
-        auth_header = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
+        auth_header = base64.b64encode(
+            f"{self.client_id}:{self.client_secret}".encode()
+        ).decode()
         headers = {
             "Authorization": f"Basic {auth_header}",
-            "Content-Type": "application/x-www-form-urlencoded"
+            "Content-Type": "application/x-www-form-urlencoded",
         }
         data = {
             "grant_type": "refresh_token",
-            "refresh_token": self.refresh_token
+            "refresh_token": self.refresh_token,
         }
 
         try:
-            resp = requests.post(self.TOKEN_URL, headers=headers, data=data, timeout=8.0)
+            resp = requests.post(
+                self.TOKEN_URL, headers=headers, data=data, timeout=8.0
+            )
             if resp.status_code == 200:
                 token_data = resp.json()
                 self.access_token = token_data.get("access_token")
                 expires_in = token_data.get("expires_in", 3600)
-                self.token_expires_at = time.time() + expires_in - 60.0  # Làm mới sớm 60 giây
+                self.token_expires_at = time.time() + expires_in - 60.0
                 if "refresh_token" in token_data:
                     self.refresh_token = token_data["refresh_token"]
                 self._save_cached_token()
-                self.logger.info("Đã tự động làm mới Spotify Access Token thành công.")
+                self.logger.info(
+                    "Đã tự động làm mới Spotify Access Token thành công."
+                )
                 return True
             else:
-                self.logger.error(f"Lỗi làm mới token: HTTP {resp.status_code} - {resp.text}")
+                self.logger.error(
+                    f"Lỗi làm mới token: HTTP {resp.status_code} - {resp.text}"
+                )
                 return False
         except requests.exceptions.RequestException as e:
             self.logger.warning(f"Lỗi kết nối khi làm mới token: {e}")
             return False
 
+    def _listen_for_oauth_code(self, auth_url: str) -> Optional[str]:
+        """Khởi tạo HTTP Server cục bộ tạm thời để tự động bắt mã ?code=...
+
+        từ Spotify mà không bắt người dùng phải copy-paste thủ công.
+        """
+        parsed_uri = urllib.parse.urlparse(self.redirect_uri)
+        host = parsed_uri.hostname or "localhost"
+        port = parsed_uri.port or 8888
+
+        captured_code = {"code": None}
+
+        class OAuthCallbackHandler(BaseHTTPRequestHandler):
+
+            def do_GET(self):
+                query = urllib.parse.urlparse(self.path).query
+                params = urllib.parse.parse_qs(query)
+                if "code" in params:
+                    captured_code["code"] = params["code"][0]
+                    self.send_response(200)
+                    self.send_header(
+                        "Content-Type", "text/html; charset=utf-8"
+                    )
+                    self.end_headers()
+                    html = """
+                    <html><head><title>Spotify x Wallpaper Engine Sync</title></head>
+                    <body style="background:#121212;color:#1DB954;font-family:sans-serif;text-align:center;padding-top:100px;">
+                        <h1>&#10004; Xác thực Spotify thành công!</h1>
+                        <p style="color:#ffffff;">Bạn có thể đóng tab trình duyệt này lại. Ứng dụng đang chạy ngầm.</p>
+                    </body></html>
+                    """
+                    self.wfile.write(html.encode("utf-8"))
+                else:
+                    self.send_response(400)
+                    self.end_headers()
+
+            def log_message(self, format, *args):
+                pass  # Ẩn log HTTP server trên console
+
+        try:
+            server = HTTPServer((host, port), OAuthCallbackHandler)
+            server.timeout = 120.0  # Chờ tối đa 2 phút
+            self.logger.info(
+                f"Đang tự động mở trình duyệt để xác thực Spotify (Cổng {port})..."
+            )
+            webbrowser.open(auth_url)
+            server.handle_request()
+            server.server_close()
+            return captured_code["code"]
+        except Exception as e:
+            self.logger.debug(
+                f"Không thể mở cổng tự động {port} ({e}). Chuyển sang nhập thủ công."
+            )
+            return None
+
     def authorize_interactive(self) -> bool:
-        """
-        Xác thực Spotify OAuth2 thông minh:
-        - Mở HTTP Server cục bộ tại cổng của redirect_uri (ví dụ port 8888).
-        - Tự động mở trình duyệt qua webbrowser.open().
-        - Tự động bắt mã ?code=... và gửi trang HTML tiếng Việt thông báo thành công.
-        - Tự động fallback về nhập tay qua console nếu cổng bị chiếm dụng.
-        """
+        """Xác thực OAuth2 lần đầu (Ưu tiên tự động bắt Callback, dự phòng nhập tay)."""
         if self.refresh_token and self.refresh_access_token():
             return True
 
@@ -520,134 +600,58 @@ class SpotifyAPIClient:
             return False
 
         scope = "user-read-playback-state user-read-currently-playing"
-        auth_query = urllib.parse.urlencode({
-            "client_id": self.client_id,
-            "response_type": "code",
-            "redirect_uri": self.redirect_uri,
-            "scope": scope
-        })
+        auth_query = urllib.parse.urlencode(
+            {
+                "client_id": self.client_id,
+                "response_type": "code",
+                "redirect_uri": self.redirect_uri,
+                "scope": scope,
+            }
+        )
         auth_url = f"https://accounts.spotify.com/authorize?{auth_query}"
 
-        # Phân tích host và port từ redirect_uri
-        parsed_uri = urllib.parse.urlparse(self.redirect_uri)
-        listen_host = parsed_uri.hostname or "127.0.0.1"
-        listen_port = parsed_uri.port or 8888
+        # Thử tự động bắt mã qua trình duyệt
+        auth_code = self._listen_for_oauth_code(auth_url)
 
-        auth_code: Optional[str] = None
-
-        # Lớp xử lý yêu cầu Callback HTTP
-        class OAuthCallbackHandler(http.server.BaseHTTPRequestHandler):
-            captured_code = None
-            captured_error = None
-
-            def do_GET(self):
-                parsed = urllib.parse.urlparse(self.path)
-                params = urllib.parse.parse_qs(parsed.query)
-
-                if "code" in params:
-                    OAuthCallbackHandler.captured_code = params["code"][0]
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    success_html = """<!DOCTYPE html>
-<html lang="vi">
-<head>
-    <meta charset="utf-8">
-    <title>Xác thực Spotify Thành Công</title>
-    <style>
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #121212; color: #FFFFFF; text-align: center; padding-top: 80px; margin: 0; }
-        .card { background: #181818; border: 1px solid #282828; border-radius: 12px; display: inline-block; padding: 40px; box-shadow: 0 8px 24px rgba(0,0,0,0.6); max-width: 460px; }
-        h1 { color: #1DB954; font-size: 26px; margin-bottom: 12px; }
-        p { color: #b3b3b3; font-size: 15px; line-height: 1.5; margin: 0; }
-        .badge { background: #1DB954; color: #000; font-weight: bold; border-radius: 20px; padding: 6px 16px; display: inline-block; margin-top: 20px; }
-    </style>
-</head>
-<body>
-    <div class="card">
-        <h1>✔ Xác thực Spotify Thành Công!</h1>
-        <p>Ứng dụng <strong>Spotify x Wallpaper Engine Sync</strong> đã kết nối an toàn.</p>
-        <p style="margin-top: 10px;">Bạn có thể an tâm đóng tab trình duyệt này.</p>
-        <div class="badge">ĐỒNG BỘ ĐÃ SẴN SÀNG</div>
-    </div>
-</body>
-</html>"""
-                    self.wfile.write(success_html.encode("utf-8"))
-                else:
-                    OAuthCallbackHandler.captured_error = params.get("error", ["Không rõ lỗi"])[0]
-                    self.send_response(400)
-                    self.send_header("Content-Type", "text/html; charset=utf-8")
-                    self.end_headers()
-                    self.wfile.write(f"<h1>Xác thực thất bại: {OAuthCallbackHandler.captured_error}</h1>".encode("utf-8"))
-
-            def log_message(self, format, *args):
-                pass  # Tắt log stdout của HTTP server để giữ console sạch sẽ
-
-        httpd = None
-        server_started = False
-        try:
-            httpd = http.server.HTTPServer((listen_host, listen_port), OAuthCallbackHandler)
-            httpd.timeout = 120.0  # Chờ người dùng đăng nhập trong 2 phút
-            server_started = True
-            self.logger.info(f"Đã mở cổng lắng nghe OAuth tại http://{listen_host}:{listen_port}")
-        except Exception as e:
-            self.logger.warning(f"Không thể mở cổng lắng nghe tự động {listen_port} ({e}). Chuyển sang chế độ nhập tay.")
-
-        # Tự động mở trình duyệt xác thực
-        self.logger.info("Đang tự động mở trình duyệt để xác thực Spotify...")
-        try:
-            webbrowser.open(auth_url)
-        except Exception:
-            pass
-
-        if server_started and httpd:
-            self.logger.info("Đang chờ xác nhận từ trình duyệt (Tự động nhận diện code)...")
-            try:
-                httpd.handle_request()
-                auth_code = OAuthCallbackHandler.captured_code
-            except Exception as e:
-                self.logger.warning(f"Lỗi khi bắt callback tự động: {e}")
-            finally:
-                try:
-                    httpd.server_close()
-                except Exception:
-                    pass
-
-        # Fallback chế độ nhập tay nếu server không bắt được
+        # Nếu cổng bận hoặc hết thời gian chờ -> Fallback sang nhập tay
         if not auth_code:
             print("\n" + "=" * 70)
-            print("XÁC THỰC SPOTIFY THỦ CÔNG (FALLBACK)")
-            print("1. Nếu trình duyệt chưa tự mở, hãy truy cập link sau:")
-            print(f"\n   {auth_url}\n")
-            print("2. Sau khi bấm Đồng ý (Agree), sao chép toàn bộ URL chuyển hướng hoặc mã code dán vào đây:")
+            print("XÁC THỰC SPOTIFY THỦ CÔNG")
+            print(f"1. Mở đường link sau trong trình duyệt:\n\n   {auth_url}\n")
+            print(
+                "2. Nhấn 'Agree' và sao chép TOÀN BỘ đường link chuyển hướng dán vào dưới đây:"
+            )
             print("=" * 70)
             try:
-                user_input = input("Nhập URL chuyển hướng hoặc mã Code: ").strip()
-                if "code=" in user_input:
-                    match = re.search(r"code=([^&]+)", user_input)
-                    auth_code = match.group(1) if match else user_input
-                else:
-                    auth_code = user_input
+                user_input = input(
+                    "Nhập URL chuyển hướng hoặc mã Code: "
+                ).strip()
             except (KeyboardInterrupt, EOFError):
                 return False
 
-        if not auth_code:
-            self.logger.error("Không nhận được mã xác thực hợp lệ.")
-            return False
+            if "code=" in user_input:
+                match = re.search(r"code=([^&]+)", user_input)
+                auth_code = match.group(1) if match else user_input
+            else:
+                auth_code = user_input
 
-        # Đổi authorization_code lấy access_token & refresh_token
-        auth_header = base64.b64encode(f"{self.client_id}:{self.client_secret}".encode()).decode()
+        auth_header = base64.b64encode(
+            f"{self.client_id}:{self.client_secret}".encode()
+        ).decode()
         headers = {
             "Authorization": f"Basic {auth_header}",
-            "Content-Type": "application/x-www-form-urlencoded"
+            "Content-Type": "application/x-www-form-urlencoded",
         }
         data = {
             "grant_type": "authorization_code",
             "code": auth_code,
-            "redirect_uri": self.redirect_uri
+            "redirect_uri": self.redirect_uri,
         }
 
         try:
-            resp = requests.post(self.TOKEN_URL, headers=headers, data=data, timeout=10.0)
+            resp = requests.post(
+                self.TOKEN_URL, headers=headers, data=data, timeout=10.0
+            )
             if resp.status_code == 200:
                 res_json = resp.json()
                 self.access_token = res_json.get("access_token")
@@ -655,120 +659,107 @@ class SpotifyAPIClient:
                 expires_in = res_json.get("expires_in", 3600)
                 self.token_expires_at = time.time() + expires_in - 60.0
                 self._save_cached_token()
-                self.logger.info("Xác thực Spotify thành công! Token đã được lưu trữ an toàn.")
+                self.logger.info(
+                    "Xác thực Spotify thành công! Token đã được lưu trữ an toàn."
+                )
                 return True
             else:
-                self.logger.error(f"Xác thực thất bại: HTTP {resp.status_code} - {resp.text}")
+                self.logger.error(
+                    f"Xác thực thất bại: HTTP {resp.status_code} - {resp.text}"
+                )
                 return False
         except Exception as e:
-            self.logger.error(f"Lỗi gửi yêu cầu cấp token: {e}")
+            self.logger.error(f"Lỗi gửi yêu cầu xác thực: {e}")
             return False
 
-    def get_artist_genres(self, artist_id: str) -> List[str]:
-        """
-        Lấy danh sách thể loại nhạc (genres) của nghệ sĩ từ Spotify API.
-        Tích hợp bộ nhớ đệm RAM (artist_genre_cache) để không gọi lại API cho cùng 1 nghệ sĩ.
-        """
-        if not artist_id:
-            return []
-
-        # Kiểm tra bộ nhớ đệm RAM
-        if artist_id in self.artist_genre_cache:
-            return self.artist_genre_cache[artist_id]
-
-        if time.time() >= self.token_expires_at:
-            if not self.refresh_access_token():
-                return []
-
-        headers = {
-            "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
-        }
-        artist_url = f"{self.ARTIST_URL}/{artist_id}"
-        req_timeout = float(self.sync_cfg.get("request_timeout_seconds", 5.0))
-
-        try:
-            resp = requests.get(artist_url, headers=headers, timeout=req_timeout)
-            if resp.status_code == 200:
-                artist_data = resp.json()
-                genres = [g.lower() for g in artist_data.get("genres", []) if isinstance(g, str)]
-                self.artist_genre_cache[artist_id] = genres
-                self.logger.debug(f"[Genre Cache] Nghệ sĩ {artist_id} có các thể loại: {genres}")
-                return genres
-            elif resp.status_code == 401:
-                if self.refresh_access_token():
-                    return self.get_artist_genres(artist_id)
-            elif resp.status_code == 429:
-                retry_after = int(resp.headers.get("Retry-After", 5))
-                time.sleep(retry_after)
-        except Exception as e:
-            self.logger.debug(f"Không thể lấy thể loại của nghệ sĩ {artist_id}: {e}")
-
-        return []
-
     def get_current_playback(self) -> Optional[Dict[str, Any]]:
-        """
-        Lấy thông tin trạng thái phát nhạc hiện tại.
-        Bảo vệ toàn diện trước mã lỗi HTTP 429, 401, Timeout và mất mạng.
-        """
+        """Lấy thông tin trạng thái phát nhạc hiện tại."""
         if time.time() >= self.token_expires_at:
             if not self.refresh_access_token():
-                self.logger.warning("Đang thử kết nối lại với xác thực Spotify...")
                 return None
 
         headers = {
             "Authorization": f"Bearer {self.access_token}",
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         }
         req_timeout = float(self.sync_cfg.get("request_timeout_seconds", 5.0))
 
         try:
-            resp = requests.get(self.PLAYER_URL, headers=headers, timeout=req_timeout)
+            resp = requests.get(
+                self.PLAYER_URL, headers=headers, timeout=req_timeout
+            )
 
-            # Trường hợp 1: Tắt Spotify hoặc tạm dừng (HTTP 204 No Content)
             if resp.status_code == 204:
-                self.backoff_delay = float(self.sync_cfg.get("backoff_factor", 1.5))
+                self.backoff_delay = float(
+                    self.sync_cfg.get("backoff_factor", 1.5)
+                )
                 return None
 
-            # Trường hợp 2: Token hết hạn (HTTP 401)
             if resp.status_code == 401:
-                self.logger.info("Access Token đã hết hạn. Đang làm mới...")
                 if self.refresh_access_token():
                     return self.get_current_playback()
                 return None
 
-            # Trường hợp 3: Bị giới hạn tần suất gọi API (HTTP 429 Too Many Requests)
             if resp.status_code == 429:
                 retry_after = int(resp.headers.get("Retry-After", 5))
                 self.logger.warning(
-                    f"Spotify Rate Limit (HTTP 429)! Tự động hoãn theo yêu cầu máy chủ: {retry_after}s"
+                    f"Spotify Rate Limit (HTTP 429)! Tự động hoãn: {retry_after}s"
                 )
                 time.sleep(retry_after)
                 return None
 
-            # Trường hợp 4: Thành công (HTTP 200)
             if resp.status_code == 200:
-                self.backoff_delay = float(self.sync_cfg.get("backoff_factor", 1.5))
+                self.backoff_delay = float(
+                    self.sync_cfg.get("backoff_factor", 1.5)
+                )
                 return resp.json()
 
-            self.logger.debug(f"Spotify API trả về trạng thái HTTP {resp.status_code}")
             return None
 
-        except requests.exceptions.Timeout:
-            self.logger.warning("Kết nối đến Spotify API bị quá thời gian (Timeout).")
-            self._apply_exponential_backoff()
-            return None
-        except requests.exceptions.ConnectionError:
-            self.logger.warning("Không thể kết nối đến máy chủ Spotify (Mất mạng tạm thời).")
+        except (
+            requests.exceptions.Timeout,
+            requests.exceptions.ConnectionError,
+        ):
+            self.logger.warning(
+                "Mất kết nối tạm thời tới Spotify API. Đang thử lại..."
+            )
             self._apply_exponential_backoff()
             return None
         except requests.exceptions.RequestException as e:
-            self.logger.warning(f"Lỗi ngoại lệ mạng khi gọi Spotify API: {e}")
+            self.logger.warning(f"Lỗi mạng khi gọi Spotify API: {e}")
             self._apply_exponential_backoff()
             return None
 
+    def get_artist_genres(self, artist_id: str) -> List[str]:
+        """Lấy danh sách thể loại nhạc (genres) của nghệ sĩ kèm bộ nhớ đệm RAM."""
+        if not artist_id:
+            return []
+
+        if artist_id in self.artist_genre_cache:
+            return self.artist_genre_cache[artist_id]
+
+        if time.time() >= self.token_expires_at:
+            self.refresh_access_token()
+
+        headers = {"Authorization": f"Bearer {self.access_token}"}
+        try:
+            resp = requests.get(
+                f"{self.ARTIST_URL}/{artist_id}", headers=headers, timeout=4.0
+            )
+            if resp.status_code == 200:
+                genres = [
+                    g.lower() for g in resp.json().get("genres", []) if g
+                ]
+                self.artist_genre_cache[artist_id] = genres
+                return genres
+        except Exception as e:
+            self.logger.debug(
+                f"Không lấy được thể loại của nghệ sĩ {artist_id}: {e}"
+            )
+
+        return []
+
     def _apply_exponential_backoff(self) -> None:
-        """Áp dụng cơ chế Exponential Backoff để chống quá tải khi mất mạng."""
         time.sleep(self.backoff_delay)
         self.backoff_delay = min(self.backoff_delay * 2.0, self.max_backoff)
 
@@ -777,33 +768,19 @@ class SpotifyAPIClient:
 # 6. MÔ-ĐUN PHÂN TÍCH VÀ BÓC TÁCH DỮ LIỆU BÀI HÁT AN TOÀN (TRACK PARSER)
 # ==============================================================================
 class TrackMetadataParser:
-    """
-    Bóc tách an toàn tuyệt đối các trường dữ liệu bài hát từ phản hồi Spotify API.
-    Đặc trị các ca hóc búa: Ads, Podcast, Local Files và Album Art thiếu trường.
-    """
+    """Bóc tách an toàn tuyệt đối các trường dữ liệu bài hát từ phản hồi Spotify API."""
 
     @staticmethod
     def parse_playback(playback: Optional[Dict[str, Any]]) -> Dict[str, Any]:
-        """
-        Phân tích đối tượng playback, trả về từ điển dữ liệu chuẩn hóa:
-        - is_playing: bool
-        - track_id: str
-        - track_title: str
-        - artist_name: str
-        - primary_artist_id: Optional[str] (Dùng để tra cứu genre)
-        - album_name: str
-        - thumbnail_url: Optional[str] (kích thước nhỏ nhất để tối ưu RAM)
-        - content_type: 'track' | 'ad' | 'episode' | 'local' | 'unknown'
-        """
         result = {
             "is_playing": False,
             "track_id": "",
             "track_title": "",
             "artist_name": "",
-            "primary_artist_id": None,
+            "primary_artist_id": "",
             "album_name": "",
             "thumbnail_url": None,
-            "content_type": "unknown"
+            "content_type": "unknown",
         }
 
         if not playback or not isinstance(playback, dict):
@@ -813,8 +790,10 @@ class TrackMetadataParser:
         curr_type = playback.get("currently_playing_type", "track")
         item = playback.get("item")
 
-        # 1. Trường hợp: Quảng cáo (Ads)
-        if curr_type == "ad" or (item and str(item.get("uri", "")).startswith("spotify:ad:")):
+        # 1. Quảng cáo (Ads)
+        if curr_type == "ad" or (
+            item and str(item.get("uri", "")).startswith("spotify:ad:")
+        ):
             result["content_type"] = "ad"
             result["track_title"] = "[Spotify Advertisement]"
             result["track_id"] = "spotify:ad"
@@ -823,10 +802,12 @@ class TrackMetadataParser:
         if not item or not isinstance(item, dict):
             return result
 
-        # 2. Trường hợp: Podcast / Episode (Không có trường 'album' truyền thống)
+        # 2. Podcast / Episode
         if curr_type == "episode" or item.get("type") == "episode":
             result["content_type"] = "episode"
-            result["track_id"] = item.get("id") or item.get("uri") or "podcast_episode"
+            result["track_id"] = (
+                item.get("id") or item.get("uri") or "podcast_episode"
+            )
             result["track_title"] = item.get("name") or "Podcast Episode"
             show = item.get("show", {})
             result["artist_name"] = show.get("name") or "Podcast Show"
@@ -837,36 +818,52 @@ class TrackMetadataParser:
                 result["thumbnail_url"] = images[-1].get("url")
             return result
 
-        # 3. Trường hợp: Nhạc nội bộ trên máy người dùng (Local Files)
-        if item.get("is_local") or str(item.get("uri", "")).startswith("spotify:local:"):
+        # 3. Nhạc nội bộ (Local Files)
+        if item.get("is_local") or str(item.get("uri", "")).startswith(
+            "spotify:local:"
+        ):
             result["content_type"] = "local"
             title = item.get("name") or "Local Track"
-            artists = ", ".join([a.get("name", "") for a in item.get("artists", []) if a.get("name")]) or "Local Artist"
+            artists = (
+                ", ".join(
+                    [
+                        a.get("name", "")
+                        for a in item.get("artists", [])
+                        if a.get("name")
+                    ]
+                )
+                or "Local Artist"
+            )
             result["track_title"] = title
             result["artist_name"] = artists
-            result["album_name"] = item.get("album", {}).get("name") or "Local Album"
+            result["album_name"] = (
+                item.get("album", {}).get("name") or "Local Album"
+            )
             result["track_id"] = f"local:{artists}:{title}"
-            result["thumbnail_url"] = None
             return result
 
-        # 4. Trường hợp: Bài hát chuẩn (Standard Track)
+        # 4. Bài hát chuẩn (Standard Track)
         result["content_type"] = "track"
         result["track_id"] = item.get("id") or item.get("uri") or ""
         result["track_title"] = item.get("name") or "Unknown Track"
 
-        artists_list = item.get("artists") or []
-        result["artist_name"] = ", ".join([a.get("name", "") for a in artists_list if a.get("name")]) or "Unknown Artist"
-
-        # Trích xuất primary_artist_id của ca sĩ chính để phân tích thể loại
-        if artists_list and isinstance(artists_list, list) and len(artists_list) > 0:
-            result["primary_artist_id"] = artists_list[0].get("id")
+        artists_list = item.get("artists", [])
+        if artists_list and isinstance(artists_list, list):
+            result["artist_name"] = (
+                ", ".join(
+                    [a.get("name", "") for a in artists_list if a.get("name")]
+                )
+                or "Unknown Artist"
+            )
+            result["primary_artist_id"] = artists_list[0].get("id") or ""
+        else:
+            result["artist_name"] = "Unknown Artist"
 
         album = item.get("album") or {}
         result["album_name"] = album.get("name") or "Unknown Album"
 
         images = album.get("images") or []
         if images and isinstance(images, list):
-            # Chọn thumbnail nhỏ nhất (64x64 hoặc 300x300) để tải nhanh gấp 10 lần
             result["thumbnail_url"] = images[-1].get("url")
 
         return result
@@ -876,13 +873,7 @@ class TrackMetadataParser:
 # 7. VÒNG LẶP ĐỒNG BỘ ĐIỀU PHỐI TRUNG TÂM (CORE SYNC ENGINE)
 # ==============================================================================
 class SpotifyWallpaperSyncEngine:
-    """
-    Trình điều phối trung tâm:
-    - Quản lý bộ đếm Fallback Timer khi tạm dừng nhạc quá [X] giây.
-    - Caching trạng thái (State Caching): Chỉ kích hoạt lệnh khi có thay đổi thực sự.
-    - Đổi hình nền theo thể loại nhạc (genre_wallpaper_mapping).
-    - Phối hợp lấy màu RAM và điều khiển Wallpaper Engine ngầm.
-    """
+    """Trình điều phối trung tâm."""
 
     def __init__(self, config_path: str = "config.json", env_path: str = ".env"):
         load_env_file(env_path)
@@ -890,8 +881,12 @@ class SpotifyWallpaperSyncEngine:
         self.logger = setup_logger(self.config)
 
         self.logger.info("=" * 65)
-        self.logger.info("   Spotify x Wallpaper Engine Sync Engine - Enterprise v3.2.1")
-        self.logger.info("   Tự động OAuth - Khớp Thể Loại (Genre) - Chống Crash - Tối ưu RAM")
+        self.logger.info(
+            "   Spotify x Wallpaper Engine Sync Engine - Enterprise v3.2.1"
+        )
+        self.logger.info(
+            "   Auto-OAuth - Genre Sync - Chống Crash - Xử lý RAM - Chạy ngầm"
+        )
         self.logger.info("=" * 65)
 
         self.we_controller = WallpaperEngineController(self.config, self.logger)
@@ -901,24 +896,27 @@ class SpotifyWallpaperSyncEngine:
         self.sync_cfg = self.config.get("sync_settings", {})
         self.we_cfg = self.config.get("wallpaper_engine", {})
         self.color_cfg = self.config.get("album_color_extraction", {})
+        self.genre_map = self.config.get("genre_wallpaper_mapping", {})
 
         # Bộ nhớ đệm trạng thái (State Cache)
         self.last_track_id: Optional[str] = None
         self.last_is_playing: Optional[bool] = None
-        self.current_wallpaper: Optional[str] = None
+        self.last_wallpaper_applied: Optional[str] = None
 
         # Fallback Timer
         self.pause_start_time: Optional[float] = None
         self.fallback_applied: bool = False
-        self.pause_timeout: float = float(self.sync_cfg.get("pause_timeout_seconds", 30.0))
+        self.pause_timeout: float = float(
+            self.sync_cfg.get("pause_timeout_seconds", 30.0)
+        )
 
-        # Cờ vòng lặp chính
         self.running = True
 
     def initialize(self) -> bool:
-        """Khởi động và kiểm tra xác thực ban đầu."""
         if not self.api_client.authorize_interactive():
-            self.logger.error("Không thể xác thực với Spotify. Chương trình tạm dừng.")
+            self.logger.error(
+                "Không thể xác thực với Spotify. Chương trình tạm dừng."
+            )
             return False
         return True
 
@@ -933,15 +931,41 @@ class SpotifyWallpaperSyncEngine:
         )
 
         default_wp = self.we_cfg.get("default_wallpaper")
-        if default_wp and default_wp != self.current_wallpaper:
-            if self.we_controller.open_wallpaper(default_wp):
-                self.current_wallpaper = default_wp
+        if default_wp and default_wp != self.last_wallpaper_applied:
+            self.we_controller.open_wallpaper(default_wp)
+            self.last_wallpaper_applied = default_wp
 
         default_color = self.we_cfg.get("default_accent_color", "#1DB954")
         if default_color:
             self.we_controller.set_accent_color(default_color)
 
         self.fallback_applied = True
+
+    def sync_wallpaper_by_genre(self, primary_artist_id: str) -> None:
+        """Kiểm tra thể loại nhạc của nghệ sĩ và đổi hình nền tương ứng nếu có cấu hình."""
+        if (
+            not self.we_cfg.get("control_wallpaper", True)
+            or not self.genre_map
+        ):
+            return
+
+        # Lọc các thể loại đã được người dùng cấu hình đường dẫn khác rỗng
+        active_mappings = {
+            k.lower(): v for k, v in self.genre_map.items() if v and str(v).strip()
+        }
+        if not active_mappings or not primary_artist_id:
+            return
+
+        artist_genres = self.api_client.get_artist_genres(primary_artist_id)
+        for genre_key, wp_target in active_mappings.items():
+            if any(genre_key in ag for ag in artist_genres):
+                if wp_target != self.last_wallpaper_applied:
+                    self.logger.info(
+                        f"[Thể loại: {genre_key}] Phù hợp với nghệ sĩ -> Đổi hình nền."
+                    )
+                    self.we_controller.open_wallpaper(wp_target)
+                    self.last_wallpaper_applied = wp_target
+                return
 
     def process_cycle(self) -> None:
         """Thực thi một chu kỳ kiểm tra và đồng bộ trạng thái."""
@@ -952,13 +976,13 @@ class SpotifyWallpaperSyncEngine:
         current_track_id = track["track_id"]
         content_type = track["content_type"]
 
-        # ==============================================================
         # 1. Xử lý trạng thái Dừng nhạc / Tắt Spotify (Fallback Timer)
-        # ==============================================================
         if not current_is_playing:
             if self.pause_start_time is None:
                 self.pause_start_time = time.time()
-                self.logger.info("[Trạng thái] Nhạc đang tạm dừng hoặc Spotify chưa phát bài nào.")
+                self.logger.info(
+                    "[Trạng thái] Nhạc đang tạm dừng hoặc Spotify chưa phát bài nào."
+                )
 
             elapsed_paused = time.time() - self.pause_start_time
             if elapsed_paused >= self.pause_timeout:
@@ -967,25 +991,23 @@ class SpotifyWallpaperSyncEngine:
             self.last_is_playing = False
             return
 
-        # ==============================================================
         # 2. Nhạc đang phát -> Đặt lại bộ đếm Fallback Timer
-        # ==============================================================
         self.pause_start_time = None
         self.fallback_applied = False
 
-        # ==============================================================
         # 3. Bỏ qua Quảng cáo (Ads)
-        # ==============================================================
         if content_type == "ad":
-            self.logger.info("[Quảng cáo] Đang phát quảng cáo Spotify. Bỏ qua đồng bộ hình nền.")
+            self.logger.info(
+                "[Quảng cáo] Đang phát quảng cáo Spotify. Bỏ qua đồng bộ hình nền."
+            )
             return
 
-        # ==============================================================
-        # 4. Tối ưu Hiệu năng: Caching trạng thái (State Caching)
-        # Chỉ thực thi lệnh khi bài hát hoặc trạng thái phát THỰC SỰ THAY ĐỔI
-        # ==============================================================
-        if current_track_id == self.last_track_id and current_is_playing == self.last_is_playing:
-            return  # Không có thay đổi, không spam lệnh cho Wallpaper Engine
+        # 4. Caching trạng thái: Chỉ thực thi khi bài hát hoặc trạng thái phát THỰC SỰ THAY ĐỔI
+        if (
+            current_track_id == self.last_track_id
+            and current_is_playing == self.last_is_playing
+        ):
+            return
 
         self.last_track_id = current_track_id
         self.last_is_playing = current_is_playing
@@ -995,39 +1017,16 @@ class SpotifyWallpaperSyncEngine:
             f"[{track['album_name']}] ({content_type})"
         )
 
-        # ==============================================================
-        # 5. Đổi hình nền theo thể loại nhạc (genre_wallpaper_mapping)
-        # ==============================================================
-        if self.we_cfg.get("control_wallpaper", True):
-            genre_mapping = self.config.get("genre_wallpaper_mapping", {})
-            primary_artist_id = track.get("primary_artist_id")
+        # 5. Đổi hình nền theo thể loại nhạc (nếu có cấu hình trong genre_wallpaper_mapping)
+        self.sync_wallpaper_by_genre(track.get("primary_artist_id", ""))
 
-            matched_wallpaper = None
-            if primary_artist_id and genre_mapping:
-                genres = self.api_client.get_artist_genres(primary_artist_id)
-                for g in genres:
-                    g_clean = g.strip().lower()
-                    for target_genre, wp_file in genre_mapping.items():
-                        target_clean = target_genre.strip().lower()
-                        if wp_file and (target_clean in g_clean or g_clean in target_clean):
-                            matched_wallpaper = wp_file
-                            self.logger.info(
-                                f"[Genre Match] Thể loại '{g}' khớp với cấu hình '{target_genre}' -> {wp_file}"
-                            )
-                            break
-                    if matched_wallpaper:
-                        break
-
-            # Kích hoạt đổi hình nền nếu tìm thấy và khác hình nền đang phát
-            if matched_wallpaper and matched_wallpaper != self.current_wallpaper:
-                if self.we_controller.open_wallpaper(matched_wallpaper):
-                    self.current_wallpaper = matched_wallpaper
-
-        # ==============================================================
         # 6. Trích xuất màu trên RAM & Cập nhật Wallpaper Engine
-        # ==============================================================
         if self.color_cfg.get("enabled", True) and track.get("thumbnail_url"):
-            extracted_rgb = self.color_extractor.extract_dominant_color_from_url(track["thumbnail_url"])
+            extracted_rgb = (
+                self.color_extractor.extract_dominant_color_from_url(
+                    track["thumbnail_url"]
+                )
+            )
             if extracted_rgb:
                 self.we_controller.set_accent_color(extracted_rgb)
         elif self.we_cfg.get("control_accent_color", True):
@@ -1035,15 +1034,20 @@ class SpotifyWallpaperSyncEngine:
             self.we_controller.set_accent_color(default_color)
 
     def run(self) -> None:
-        """Vòng lặp chạy ngầm chính với khả năng bắt tín hiệu dừng an toàn."""
         if not self.initialize():
             return
 
-        polling_interval = float(self.sync_cfg.get("polling_interval_seconds", 2.0))
-        self.logger.info(f"Bắt đầu lắng nghe trạng thái Spotify (Chu kỳ quét: {polling_interval}s)...")
+        polling_interval = float(
+            self.sync_cfg.get("polling_interval_seconds", 2.0)
+        )
+        self.logger.info(
+            f"Bắt đầu lắng nghe trạng thái Spotify (Chu kỳ quét: {polling_interval}s)..."
+        )
 
         def handle_signal(sig, frame):
-            self.logger.info("Nhận tín hiệu dừng chương trình. Đang dọn dẹp an toàn...")
+            self.logger.info(
+                "Nhận tín hiệu dừng chương trình. Đang dọn dẹp an toàn..."
+            )
             self.running = False
 
         signal.signal(signal.SIGINT, handle_signal)
@@ -1053,19 +1057,20 @@ class SpotifyWallpaperSyncEngine:
             try:
                 self.process_cycle()
             except Exception as e:
-                self.logger.error(f"Ngoại lệ không mong muốn trong vòng lặp chính: {e}", exc_info=True)
+                self.logger.error(
+                    f"Ngoại lệ không mong muốn trong vòng lặp chính: {e}",
+                    exc_info=True,
+                )
 
             time.sleep(polling_interval)
 
-        self.logger.info("Chương trình Spotify x Wallpaper Engine Sync đã dừng hoàn tất.")
+        self.logger.info(
+            "Chương trình Spotify x Wallpaper Engine Sync đã dừng hoàn tất."
+        )
 
 
-# ==============================================================================
-# ĐIỂM KHỞI CHẠY CHÍNH (ENTRY POINT)
-# ==============================================================================
 if __name__ == "__main__":
     app = SpotifyWallpaperSyncEngine(
-        config_path="config.json",
-        env_path=".env"
+        config_path="config.json", env_path=".env"
     )
     app.run()
