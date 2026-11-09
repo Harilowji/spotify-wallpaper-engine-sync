@@ -1530,47 +1530,42 @@ video[id="cat"]:hover {
    Bảo lưu 100% định vị Absolute/Transform gốc của Popper để không làm văng tooltip sang lề trái! */
 
 div[data-tippy-root] {
-
   z-index: 99999 !important;
-
   pointer-events: none !important;
-
   margin: 0 !important;
-
   border: none !important;
-
   background: transparent !important;
-
 }
 
-
-
-/* Phân định chính xác tương tác: Menu nhận Click 100%, Tooltip xuyên thấu 100% */
-
+/* 1. Tooltip thuần túy: Cho phép xuyên thấu để không cản trở thao tác chuột */
 div[data-tippy-root] [role="tooltip"],
-
 div[data-tippy-root] [role="tooltip"] *,
-
 .main-contextMenu-tippy,
-
 [role="tooltip"] {
-
   pointer-events: none !important;
-
 }
 
-
-
+/* 2. TẤT CẢ các Popup tương tác (Context Menu, Add to playlist Form, Dialog, Dropdown, Button, Input, Cancel)
+   phải nhận tương tác chuột 100%, khắc phục triệt để lỗi không bấm được nút Cancel, Checkbox, Search hay Thêm Playlist */
+div[data-tippy-root] > *:not([role="tooltip"]),
+div[data-tippy-root] > *:not([role="tooltip"]) *,
+#context-menu,
+#context-menu *,
+div[data-tippy-root] form,
+div[data-tippy-root] form *,
+div[data-tippy-root] button,
+div[data-tippy-root] input,
+div[data-tippy-root] a,
+div[data-tippy-root] [role="button"],
 div[data-tippy-root] [role="menu"],
-
 div[data-tippy-root] [role="menu"] *,
-
+div[data-tippy-root] [role="menuitem"],
+div[data-tippy-root] [role="dialog"],
+div[data-tippy-root] [role="dialog"] *,
+div[data-tippy-root] [role="checkbox"],
 div[data-tippy-root] .main-contextMenu-menu,
-
 div[data-tippy-root] .main-contextMenu-menu * {
-
   pointer-events: auto !important;
-
 }
 
 
@@ -1672,14 +1667,12 @@ div[role="dialog"] {
 /* Đảm bảo nút đóng (X) và mọi nút bấm trong modal luôn nhận tương tác click 100% KHÔNG BỊ KẸT */
 
 button[aria-label="Close"],
-
 .main-playlistEditDetailsModal-closeBtn,
-
 [data-testid="playlist-edit-details-modal"] button,
-
 div[role="dialog"] button,
-
-.GenericModal button {
+.GenericModal button,
+#context-menu form button,
+form button {
 
   pointer-events: auto !important;
 
@@ -1711,36 +1704,52 @@ button[aria-label="Close"] svg,
 
 /* LƯU Ý: Tuyệt đối KHÔNG gán position: relative ở đây để bảo tồn tọa độ tính toán tự động của Popper/Tippy */
 
+#context-menu,
+div[data-tippy-root] > div:not([role="tooltip"]),
+div[data-tippy-root] form,
 div[role="menu"],
-
 ul[role="menu"],
-
 .main-contextMenu-menu,
-
 .main-userWidget-dropDownMenu,
-
 [data-encore-id="popover"],
-
 .connect-device-list-container,
-
 .main-connect-device-picker {
-
   z-index: 100000 !important;
-
-  background: rgba(12, 12, 16, 0.85) !important;
-
-  backdrop-filter: blur(18px) saturate(180%) !important;
-
-  -webkit-backdrop-filter: blur(18px) saturate(180%) !important;
-
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
-
+  background: rgba(14, 14, 18, 0.94) !important;
+  backdrop-filter: blur(24px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(24px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
   border-radius: 12px !important;
-
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.55) !important;
-
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7) !important;
   pointer-events: auto !important;
+}
 
+/* Xóa viền/nền thừa ở các thẻ con bên trong để tạo giao diện card mờ nguyên khối */
+#context-menu ul,
+#context-menu form ul,
+div[data-tippy-root] form ul,
+#context-menu div[role="menu"],
+div[data-tippy-root] form div[role="menu"] {
+  background: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  border: none !important;
+  box-shadow: none !important;
+}
+
+/* Tối ưu ô tìm kiếm và các nút bấm trong popup thêm playlist */
+#context-menu form input {
+  color: #FFFFFF !important;
+  background: rgba(255, 255, 255, 0.08) !important;
+  border: 1px solid rgba(255, 255, 255, 0.15) !important;
+  border-radius: 6px !important;
+  padding: 6px 10px !important;
+  pointer-events: auto !important;
+}
+
+#context-menu form button {
+  cursor: pointer !important;
+  pointer-events: auto !important;
 }
 
 
