@@ -519,12 +519,22 @@
         if (document.hidden) {
           this.stop();
         } else if (this.settings.config.visualizerEnabled) {
-          this.start();
+          const isPlaying = typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.isPlaying();
+          if (isPlaying) this.start();
         }
       });
 
+      if (typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.addEventListener) {
+        Spicetify.Player.addEventListener("onplaypause", () => {
+          if (Spicetify.Player.isPlaying() && this.settings.config.visualizerEnabled && !document.hidden) {
+            this.start();
+          }
+        });
+      }
+
       this.settings.subscribe((cfg) => {
-        if (cfg.visualizerEnabled && !document.hidden) {
+        const isPlaying = typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.isPlaying();
+        if (cfg.visualizerEnabled && !document.hidden && isPlaying) {
           this.start();
         } else {
           this.stop();
@@ -532,7 +542,8 @@
         }
       });
 
-      if (this.settings.config.visualizerEnabled) {
+      const isPlaying = typeof Spicetify !== "undefined" && Spicetify.Player && Spicetify.Player.isPlaying();
+      if (this.settings.config.visualizerEnabled && isPlaying) {
         this.start();
       }
     }
@@ -546,9 +557,19 @@
 
     start() {
       if (this.animationId) return;
-      const loop = () => {
-        this.render();
+      let lastTime = 0;
+      const fpsInterval = 1000 / 30; // 30 FPS cap to preserve CPU & avoid GPU compositor freezing
+      const loop = (timestamp) => {
+        if (!this.settings.config.visualizerEnabled || document.hidden) {
+          this.stop();
+          return;
+        }
         this.animationId = requestAnimationFrame(loop);
+        const elapsed = timestamp - lastTime;
+        if (elapsed >= fpsInterval) {
+          lastTime = timestamp - (elapsed % fpsInterval);
+          this.render();
+        }
       };
       this.animationId = requestAnimationFrame(loop);
     }
@@ -570,7 +591,12 @@
       const h = window.innerHeight;
       this.ctx.clearRect(0, 0, w, h);
 
-      if (this.currentAmplitude < 0.5) return;
+      if (this.currentAmplitude < 0.5) {
+        if (!isPlaying) {
+          this.stop(); // Stop loop when music is paused to achieve 0% idle CPU
+        }
+        return;
+      }
 
       this.phase += 0.024;
       const accent = this.settings.config.accentPrimary || "#1ed760";

@@ -1628,16 +1628,149 @@ div[data-tippy-root] .main-contextMenu-menu * {
 /* Khối nội dung hộp thoại (Dialog / Modal) dạng kính mờ tinh thể pha lê */
 
 .GenericModal,
-div[role="dialog"]:not(#we-settings-modal) {
+div[role="dialog"]:not(#we-settings-modal),
+[data-testid="confirm-dialog"] {
   position: relative !important;
   z-index: 100000 !important;
-  background: rgba(14, 14, 18, 0.82) !important;
-  backdrop-filter: blur(20px) saturate(180%) !important;
-  -webkit-backdrop-filter: blur(20px) saturate(180%) !important;
-  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  background: rgba(16, 16, 24, 0.90) !important;
+  backdrop-filter: blur(28px) saturate(180%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(180%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.16) !important;
   border-radius: 16px !important;
-  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.6) !important;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.75) !important;
+  color: #FFFFFF !important;
   pointer-events: auto !important;
+}
+
+/* 1. Tiêu đề hộp thoại / Modal Title */
+.GenericModal h1,
+.GenericModal h2,
+.GenericModal h3,
+div[role="dialog"]:not(#we-settings-modal) h1,
+div[role="dialog"]:not(#we-settings-modal) h2,
+div[role="dialog"]:not(#we-settings-modal) h3,
+.main-confirmDialog-title,
+[data-testid="confirm-dialog"] h1,
+[data-testid="confirm-dialog"] h2 {
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* 2. Nội dung văn bản hộp thoại / Modal Description */
+.GenericModal p,
+.GenericModal [data-encore-id="text"]:not([class*="ButtonInner"]),
+div[role="dialog"]:not(#we-settings-modal) p,
+div[role="dialog"]:not(#we-settings-modal) [data-encore-id="text"]:not([class*="ButtonInner"]),
+.main-confirmDialog-text,
+[data-testid="confirm-dialog"] p {
+  color: rgba(255, 255, 255, 0.90) !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6) !important;
+}
+
+/* 3. Bố cục hộp thoại xác nhận (Confirm Dialog) */
+.main-confirmDialog-container {
+  padding: 24px 28px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  min-width: 340px !important;
+}
+
+.main-confirmDialog-buttonContainer {
+  display: flex !important;
+  flex-direction: row !important;
+  justify-content: flex-end !important;
+  align-items: center !important;
+  gap: 12px !important;
+  margin-top: 10px !important;
+}
+
+/* 4. Nút bấm Hủy / Đóng / Secondary button trong Modal */
+.GenericModal button[data-encore-id="buttonTertiary"],
+.GenericModal button[data-encore-id="buttonSecondary"],
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonTertiary"],
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonSecondary"],
+.main-confirmDialog-buttonContainer button:not([data-encore-id="buttonPrimary"]),
+.GenericModal button:not([data-encore-id="buttonPrimary"]):not([aria-label="Close"]):not(.main-playlistEditDetailsModal-closeBtn):not(.we-modal-close) {
+  background-color: rgba(255, 255, 255, 0.12) !important;
+  border: 1px solid rgba(255, 255, 255, 0.24) !important;
+  border-radius: 500px !important;
+  color: #FFFFFF !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  padding: 8px 24px !important;
+  min-height: 40px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: all 0.2s ease !important;
+}
+
+.GenericModal button[data-encore-id="buttonTertiary"]:hover,
+.GenericModal button[data-encore-id="buttonSecondary"]:hover,
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonTertiary"]:hover,
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonSecondary"]:hover,
+.main-confirmDialog-buttonContainer button:not([data-encore-id="buttonPrimary"]):hover {
+  background-color: rgba(255, 255, 255, 0.22) !important;
+  border-color: rgba(255, 255, 255, 0.40) !important;
+  color: #FFFFFF !important;
+  transform: scale(1.03) !important;
+}
+
+.GenericModal button[data-encore-id="buttonTertiary"] span,
+.GenericModal button[data-encore-id="buttonSecondary"] span,
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonTertiary"] span,
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonSecondary"] span,
+.main-confirmDialog-buttonContainer button:not([data-encore-id="buttonPrimary"]) span {
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+/* 5. Nút bấm Xác nhận / Delete / Primary button trong Modal */
+.GenericModal button[data-encore-id="buttonPrimary"],
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonPrimary"],
+.main-confirmDialog-buttonContainer button[data-encore-id="buttonPrimary"] {
+  background-color: var(--we-accent-primary, #1ed760) !important;
+  color: #000000 !important;
+  border-radius: 500px !important;
+  border: none !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  padding: 8px 24px !important;
+  min-height: 40px !important;
+  cursor: pointer !important;
+  pointer-events: auto !important;
+  transition: all 0.2s ease !important;
+}
+
+.GenericModal button[data-encore-id="buttonPrimary"]:hover,
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonPrimary"]:hover,
+.main-confirmDialog-buttonContainer button[data-encore-id="buttonPrimary"]:hover {
+  filter: brightness(1.1) !important;
+  transform: scale(1.03) !important;
+}
+
+.GenericModal button[data-encore-id="buttonPrimary"] span,
+div[role="dialog"]:not(#we-settings-modal) button[data-encore-id="buttonPrimary"] span,
+.main-confirmDialog-buttonContainer button[data-encore-id="buttonPrimary"] span {
+  color: #000000 !important;
+  font-weight: 700 !important;
+  visibility: visible !important;
+  opacity: 1 !important;
 }
 
 /* Đảm bảo nút đóng (X) và mọi nút bấm trong modal luôn nhận tương tác click 100% KHÔNG BỊ KẸT */
