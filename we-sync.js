@@ -1017,6 +1017,9 @@
           console.warn("[WE-Sync] Failed to load wallpaper image:", imgUrl);
         };
         img.src = imgUrl;
+        if (img.complete && img.naturalWidth > 0) {
+          img.style.opacity = "1";
+        }
       } else {
         img.style.opacity = "1";
       }
@@ -1024,23 +1027,31 @@
 
     if (data.type === "video") {
       const videoUrl = data.url || data.mediaUrl;
-      const previewFallback = data.previewUrl || `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/preview?t=${Date.now()}`;
+      const previewFallback = data.previewUrl || `http://127.0.0.1:${WE_CONFIG.WS_PORT}/preview?t=${Date.now()}`;
 
-      // Issue E: Automatic codec fallback on error in Spotify CEF
-      video.onerror = () => {
-        console.warn("[WE-Sync] Video streaming failed or unsupported CEF codec. Falling back to preview thumbnail.");
-        video.style.opacity = "0";
-        renderImage(previewFallback);
-      };
+      // 1. Luôn hiển thị ngay ảnh preview chất lượng cao để nền Spotify KHÔNG BAO GIỜ bị đen
+      renderImage(previewFallback);
 
-      if (!videoUrl) {
-        renderImage(previewFallback);
-        return;
-      }
+      if (!videoUrl) return;
 
+      // 2. Thử phát video ngầm; nếu CEF giải mã được (WebM/VP9) sẽ chuyển sang video mượt mà
       const cleanExisting = (video.src || "").split("?")[0];
       const cleanNew = videoUrl.split("?")[0];
       if (cleanExisting !== cleanNew || video.src !== videoUrl || !video.src) {
+        let canplayTriggered = false;
+        const videoWatchdog = setTimeout(() => {
+          if (!canplayTriggered) {
+            console.log("[WE-Sync] Video decode watchdog timeout trong CEF, duy trì ảnh nền chất lượng cao.");
+          }
+        }, 3000);
+
+        video.onerror = () => {
+          canplayTriggered = true;
+          clearTimeout(videoWatchdog);
+          video.style.opacity = "0";
+          renderImage(previewFallback);
+        };
+
         video.defaultMuted = true;
         video.muted = true;
         video.autoplay = true;
@@ -1048,34 +1059,31 @@
         video.playsInline = true;
         video.src = videoUrl;
         video.oncanplay = () => {
-          img.style.opacity = "0";
-          video.style.opacity = "1";
-          video.play().catch(() => {
-            video.onerror();
+          canplayTriggered = true;
+          clearTimeout(videoWatchdog);
+          video.play().then(() => {
+            img.style.opacity = "0";
+            video.style.opacity = "1";
+          }).catch(() => {
+            video.style.opacity = "0";
+            img.style.opacity = "1";
           });
         };
-        video.play().catch(() => {
-          // Handled by oncanplay and onerror
-        });
-      } else {
+      } else if (!video.paused && video.readyState >= 2) {
         img.style.opacity = "0";
         video.style.opacity = "1";
-        if (video.paused) {
-          video.play().catch(() => {});
-        }
       }
     } else if (data.type === "image") {
       const imgUrl = data.url || data.mediaUrl;
       renderImage(imgUrl);
     } else if (data.type === "scene" || data.type === "web" || data.type === "pkg") {
-      // Issue B: Restore scene (.pkg) & web wallpaper handlers via previewUrl
-      const targetUrl = data.url || data.previewUrl || data.mediaUrl || `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/preview?t=${Date.now()}`;
+      const targetUrl = data.url || data.previewUrl || data.mediaUrl || `http://127.0.0.1:${WE_CONFIG.WS_PORT}/preview?t=${Date.now()}`;
       renderImage(targetUrl);
     }
   }
 
   function fetchInitialWallpaper() {
-    const url = `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/status?t=${Date.now()}`;
+    const url = `http://127.0.0.1:${WE_CONFIG.WS_PORT}/status?t=${Date.now()}`;
     fetch(url)
       .then((res) => res.json())
       .then((data) => {
@@ -1109,11 +1117,11 @@
     fetchInitialWallpaper();
 
     try {
-      const ws = new WebSocket(`ws://${currentWsHost}:${WE_CONFIG.WS_PORT}`);
+      const ws = new WebSocket(`ws://127.0.0.1:${WE_CONFIG.WS_PORT}`);
       activeWs = ws;
 
       ws.onopen = () => {
-        console.log(`[WE-Sync] Đã kết nối Wallpaper Engine qua ws://${currentWsHost}:${WE_CONFIG.WS_PORT}`);
+        console.log(`[WE-Sync] Đã kết nối Wallpaper Engine qua ws://127.0.0.1:${WE_CONFIG.WS_PORT}`);
         updateConnectionStatus(true);
       };
 
@@ -1126,7 +1134,6 @@
 
       ws.onclose = () => {
         updateConnectionStatus(false);
-        currentWsHost = currentWsHost === "127.0.0.1" ? "localhost" : "127.0.0.1";
         reconnectTimer = setTimeout(() => connectWebSocket(), WE_CONFIG.RECONNECT_DELAY);
       };
 
@@ -1135,7 +1142,6 @@
       };
     } catch (err) {
       updateConnectionStatus(false);
-      currentWsHost = currentWsHost === "127.0.0.1" ? "localhost" : "127.0.0.1";
       reconnectTimer = setTimeout(() => connectWebSocket(), WE_CONFIG.RECONNECT_DELAY);
     }
   }
@@ -1152,19 +1158,58 @@
       }
       return;
     }
+
+    // 1. Đồng bộ hình nền Wallpaper Engine cốt lõi: khởi tạo container và WebSocket ngay lập tức!
     try {
       injectSyncClasses();
       ensureMediaContainers();
-      new WESettingsGUI(settingsManager);
-      new AudioWaveVisualizer(settingsManager);
-      new DynamicColorExtractor(settingsManager);
-      new CatJamWidget(settingsManager);
-      initDOMObserver();
       connectWebSocket();
-      console.log("[WE-Sync] Studio Suite v3.1.1 initialized successfully.");
-    } catch (err) {
-      console.error("[WE-Sync] Initialization error:", err);
+      console.log("[WE-Sync] Core Wallpaper Engine Sync kết nối thành công!");
+    } catch (coreErr) {
+      console.error("[WE-Sync] Core sync bootstrap error:", coreErr);
     }
+
+    // 2. Các tính năng phụ trợ & UI Spicetify: chờ Spicetify Player & Platform nạp xong
+    const initSpicetifyFeatures = () => {
+      if (!window.Spicetify || !window.Spicetify.Player || !window.Spicetify.Platform?.PlayerAPI) {
+        setTimeout(initSpicetifyFeatures, 150);
+        return;
+      }
+
+      try {
+        new WESettingsGUI(settingsManager);
+      } catch (e) {
+        console.error("[WE-Sync] WESettingsGUI error:", e);
+      }
+
+      try {
+        new AudioWaveVisualizer(settingsManager);
+      } catch (e) {
+        console.error("[WE-Sync] AudioWaveVisualizer error:", e);
+      }
+
+      try {
+        new DynamicColorExtractor(settingsManager);
+      } catch (e) {
+        console.error("[WE-Sync] DynamicColorExtractor error:", e);
+      }
+
+      try {
+        new CatJamWidget(settingsManager);
+      } catch (e) {
+        console.error("[WE-Sync] CatJamWidget error:", e);
+      }
+
+      try {
+        initDOMObserver();
+      } catch (e) {
+        console.error("[WE-Sync] initDOMObserver error:", e);
+      }
+
+      console.log("[WE-Sync] Studio Suite v3.1.1 Spicetify extensions initialized successfully.");
+    };
+
+    initSpicetifyFeatures();
   }
 
   if (document.readyState === "loading") {
