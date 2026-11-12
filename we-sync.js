@@ -658,12 +658,19 @@
       const bindPlayer = () => {
         if (typeof Spicetify !== "undefined") {
           if (Spicetify.Player && Spicetify.Player.addEventListener) {
-            Spicetify.Player.addEventListener("onplaypause", () => this.syncPlayback());
-            Spicetify.Player.addEventListener("songchange", () => this.syncTrackBpm());
+            Spicetify.Player.addEventListener("onplaypause", () => {
+              this.ensureCorrectPlacement();
+              this.syncPlayback();
+            });
+            Spicetify.Player.addEventListener("songchange", () => {
+              this.ensureCorrectPlacement();
+              this.syncTrackBpm();
+            });
           }
           if (Spicetify.Platform && Spicetify.Platform.PlayerAPI && Spicetify.Platform.PlayerAPI.getEvents) {
             try {
               Spicetify.Platform.PlayerAPI.getEvents().addListener("update", () => {
+                this.ensureCorrectPlacement();
                 this.syncPlayback();
                 this.syncTrackBpm();
               });
@@ -732,28 +739,31 @@
     }
 
     createVideoElement() {
-      if (document.getElementById("catjam-webm")) {
-        this.video = document.getElementById("catjam-webm");
+      const target = document.querySelector(".main-nowPlayingBar-extraControls") ||
+                     document.querySelector(".main-nowPlayingBar-right");
+      if (!target) {
+        setTimeout(() => this.createVideoElement(), 500);
+        return;
+      }
+
+      let v = document.getElementById("catjam-webm");
+      if (v) {
+        if (v.parentElement !== target) {
+          target.insertBefore(v, target.firstChild);
+        }
+        this.video = v;
         this.updateAppearance(this.settings.config);
         return;
       }
 
-      const target = document.querySelector(".main-nowPlayingBar-extraControls") ||
-                     document.querySelector(".main-nowPlayingBar-right") || 
-                     document.querySelector(".main-yourLibraryX-libraryItemContainer");
-      if (!target) {
-        setTimeout(() => this.createVideoElement(), 800);
-        return;
-      }
-
-      const v = document.createElement("video");
+      v = document.createElement("video");
       v.id = "catjam-webm";
       v.loop = true;
       v.autoplay = true;
       v.muted = true;
       v.defaultMuted = true;
       v.playsInline = true;
-      v.src = `http://${currentWsHost}:${WE_CONFIG.WS_PORT}/catjam.webm`;
+      v.src = `http://127.0.0.1:${WE_CONFIG.WS_PORT}/catjam.webm`;
       v.title = "Cat Jam (Bấm để mở bảng điều khiển WE-Sync Studio)";
       v.style.cssText = `height:${this.settings.config.catJamSize || 42}px;width:auto;aspect-ratio:790/604;object-fit:contain;cursor:pointer;pointer-events:auto;transition:transform 0.15s ease, opacity 0.2s;display:${this.settings.config.catJamEnabled ? "inline-block" : "none"};`;
 
@@ -773,11 +783,26 @@
       this.syncPlayback();
     }
 
+    ensureCorrectPlacement() {
+      if (!this.settings || !this.settings.config || !this.settings.config.catJamEnabled) return;
+      const target = document.querySelector(".main-nowPlayingBar-extraControls") ||
+                     document.querySelector(".main-nowPlayingBar-right");
+      if (!target) return;
+      let v = document.getElementById("catjam-webm");
+      if (!v) {
+        this.createVideoElement();
+      } else if (v.parentElement !== target) {
+        target.insertBefore(v, target.firstChild);
+        this.video = v;
+      }
+    }
+
     updateAppearance(cfg) {
       if (!this.video) {
         if (cfg.catJamEnabled) this.createVideoElement();
         return;
       }
+      this.ensureCorrectPlacement();
       this.video.style.display = cfg.catJamEnabled ? "inline-block" : "none";
       this.video.style.height = `${cfg.catJamSize}px`;
       this.video.style.width = "auto";
@@ -937,6 +962,9 @@
           if (!window._weSettingsGUI.topbarInjected && !document.getElementById("we-settings-btn") && !document.querySelector('button[aria-label*="Spotify x Wallpaper Engine Studio"]')) {
             window._weSettingsGUI.createTopbarButton();
           }
+        }
+        if (window._catJamWidget && typeof window._catJamWidget.ensureCorrectPlacement === "function") {
+          window._catJamWidget.ensureCorrectPlacement();
         }
         ensureMediaContainers();
       }, 500);
@@ -1195,7 +1223,7 @@
       }
 
       try {
-        new CatJamWidget(settingsManager);
+        window._catJamWidget = new CatJamWidget(settingsManager);
       } catch (e) {
         console.error("[WE-Sync] CatJamWidget error:", e);
       }
